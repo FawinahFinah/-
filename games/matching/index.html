@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>单词配对 · 课堂游戏库</title>
+  <style>
+    :root {
+      --primary: #10b981;
+      --primary-dark: #059669;
+      --bg: #0f172a;
+      --surface: #1e293b;
+      --surface2: #334155;
+      --text: #f1f5f9;
+      --text-muted: #94a3b8;
+      --border: #334155;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 24px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap; gap: 8px;
+    }
+    .topbar a { color: var(--text-muted); text-decoration: none; font-size: .9rem; }
+    .topbar a:hover { color: var(--text); }
+    .topbar-title { font-size: 1.1rem; font-weight: 700; }
+    .topbar-right { display: flex; gap: 10px; align-items: center; }
+    .badge {
+      background: var(--surface2);
+      border-radius: 50px;
+      padding: 5px 14px;
+      font-size: .88rem;
+    }
+    .badge span { font-weight: 700; }
+
+    /* screens */
+    .screen { display: none; flex: 1; }
+    .screen.active { display: flex; flex-direction: column; }
+
+    /* setup */
+    #setupScreen { align-items: center; justify-content: center; padding: 40px 16px; }
+    .setup-card {
+      background: var(--surface);
+      border-radius: 20px;
+      padding: 40px;
+      width: 100%; max-width: 580px;
+      box-shadow: 0 8px 40px rgba(0,0,0,.4);
+    }
+    .setup-card h2 { font-size: 1.5rem; margin-bottom: 8px; }
+    .setup-card p { color: var(--text-muted); font-size: .92rem; margin-bottom: 28px; }
+    .pair-editor { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; max-height: 260px; overflow-y: auto; }
+    .pair-row { display: flex; gap: 10px; align-items: center; }
+    .pair-row input {
+      flex: 1;
+      padding: 9px 12px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: .9rem;
+    }
+    .pair-row input:focus { outline: 2px solid var(--primary); }
+    .pair-row .del-btn {
+      background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.1rem; padding: 4px;
+    }
+    .pair-row .del-btn:hover { color: var(--danger); }
+    .btn {
+      padding: 9px 18px; border-radius: 8px; border: none;
+      cursor: pointer; font-size: .9rem; font-weight: 600; transition: opacity .2s;
+    }
+    .btn:hover { opacity: .85; }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+    .btn-sm { padding: 6px 12px; font-size: .82rem; }
+    .setup-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+    /* game */
+    #gameScreen { align-items: center; padding: 24px 16px; }
+    .game-wrapper { width: 100%; max-width: 900px; }
+
+    /* timer bar */
+    .timer-bar {
+      background: var(--surface);
+      border-radius: 12px;
+      padding: 14px 20px;
+      display: flex; align-items: center; gap: 16px;
+      margin-bottom: 20px;
+    }
+    .timer-val { font-size: 1.5rem; font-weight: 900; min-width: 48px; }
+    .tb-prog { flex: 1; height: 8px; background: var(--surface2); border-radius: 50px; overflow: hidden; }
+    .tb-fill { height: 100%; background: var(--primary); border-radius: 50px; transition: width 1s linear; }
+
+    /* columns */
+    .columns { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .col-header { font-size: .88rem; color: var(--text-muted); margin-bottom: 10px; font-weight: 600; text-align: center; }
+    .items { display: flex; flex-direction: column; gap: 10px; }
+
+    /* item chips */
+    .item {
+      background: var(--surface);
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 18px;
+      cursor: pointer;
+      user-select: none;
+      text-align: center;
+      font-size: .95rem;
+      transition: border-color .15s, background .15s, transform .15s;
+      position: relative;
+    }
+    .item:hover:not(.matched):not(.disabled) {
+      border-color: var(--primary);
+      background: rgba(16,185,129,.1);
+    }
+    .item.selected {
+      border-color: var(--primary);
+      background: rgba(16,185,129,.2);
+      transform: scale(1.03);
+    }
+    .item.matched {
+      border-color: var(--primary);
+      background: rgba(16,185,129,.15);
+      color: var(--primary);
+      cursor: default;
+    }
+    .item.wrong {
+      border-color: var(--danger);
+      background: rgba(239,68,68,.15);
+      animation: shake .3s;
+    }
+    .item.disabled { opacity: .5; cursor: default; }
+    @keyframes shake {
+      0%,100%{transform:translateX(0)} 25%{transform:translateX(-6px)} 75%{transform:translateX(6px)}
+    }
+    .match-line-canvas {
+      position: fixed; top: 0; left: 0; pointer-events: none; z-index: 5;
+    }
+
+    /* result */
+    #resultScreen { align-items: center; justify-content: center; padding: 40px 16px; }
+    .result-card {
+      background: var(--surface);
+      border-radius: 20px;
+      padding: 48px 40px;
+      max-width: 400px; width: 100%;
+      text-align: center;
+      box-shadow: 0 8px 40px rgba(0,0,0,.4);
+    }
+    .result-card .emoji { font-size: 4rem; margin-bottom: 12px; }
+    .result-card h2 { font-size: 1.8rem; margin-bottom: 8px; }
+    .result-time { font-size: 3.5rem; font-weight: 900; color: var(--primary); margin: 16px 0 4px; }
+    .result-actions { display: flex; gap: 12px; justify-content: center; margin-top: 24px; }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <a href="../../index.html">← 返回游戏库</a>
+  <div class="topbar-title">🔗 单词配对</div>
+  <div class="topbar-right" id="topbarRight">
+    <div class="badge">已配对 <span id="matchedCount">0</span> / <span id="totalCount">0</span></div>
+  </div>
+</div>
+
+<!-- Setup -->
+<div class="screen active" id="setupScreen">
+  <div class="setup-card">
+    <h2>🔗 单词配对</h2>
+    <p>将左侧词语与右侧解释配对，全部匹配即可通关，挑战最短时间！</p>
+
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div style="font-size:.9rem;color:var(--text-muted)">配对词组（最多 10 对）</div>
+      <button class="btn btn-outline btn-sm" onclick="loadSample()">载入示例</button>
+    </div>
+    <div class="pair-editor" id="pairEditor"></div>
+    <button class="btn btn-outline" style="width:100%;margin-bottom:20px" onclick="addPairRow()">+ 添加一对</button>
+
+    <div class="setup-actions">
+      <button class="btn btn-primary" style="flex:1;padding:13px;font-size:1rem" onclick="startGame()">开始游戏 🚀</button>
+    </div>
+  </div>
+</div>
+
+<!-- Game -->
+<div class="screen" id="gameScreen">
+  <div class="game-wrapper">
+    <div class="timer-bar">
+      <div>⏱️</div>
+      <div class="timer-val" id="timerVal">0</div>
+      <div class="tb-prog"><div class="tb-fill" id="tbFill" style="width:100%"></div></div>
+      <div style="color:var(--text-muted);font-size:.88rem">秒</div>
+    </div>
+    <div class="columns">
+      <div>
+        <div class="col-header">📝 词语</div>
+        <div class="items" id="leftItems"></div>
+      </div>
+      <div>
+        <div class="col-header">💡 解释</div>
+        <div class="items" id="rightItems"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Result -->
+<div class="screen" id="resultScreen">
+  <div class="result-card">
+    <div class="emoji">🎉</div>
+    <h2>配对完成！</h2>
+    <div style="color:var(--text-muted)">用时</div>
+    <div class="result-time" id="resultTime">0</div>
+    <div style="color:var(--text-muted);margin-bottom:4px">秒</div>
+    <div style="font-size:.9rem;color:var(--text-muted)" id="resultMistakes"></div>
+    <div class="result-actions">
+      <button class="btn btn-outline" onclick="goSetup()">重新设置</button>
+      <button class="btn btn-primary" onclick="restartGame()">再来一次 🔄</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const SAMPLE_PAIRS = [
+  ['苹果', 'Apple'],['香蕉', 'Banana'],['橙子', 'Orange'],
+  ['地球', 'Earth'],['太阳', 'Sun'],['月亮', 'Moon'],
+  ['学校', 'School'],['老师', 'Teacher'],['学生', 'Student'],
+  ['图书馆', 'Library'],
+];
+
+let pairs = [];
+let shuffledLeft  = [];
+let shuffledRight = [];
+let selectedLeft  = null;
+let selectedRight = null;
+let matched = 0;
+let mistakes = 0;
+let elapsed = 0;
+let timerInterval = null;
+const MAX_TIME = 300;
+
+// ── Pair editor ──
+function initEditor() {
+  document.getElementById('pairEditor').innerHTML = '';
+  pairs.forEach((p, i) => addPairRow(p[0], p[1]));
+  if (pairs.length === 0) loadSample();
+}
+
+function addPairRow(left='', right='') {
+  const editor = document.getElementById('pairEditor');
+  if (editor.children.length >= 10) return;
+  const row = document.createElement('div');
+  row.className = 'pair-row';
+  row.innerHTML = `
+    <input type="text" placeholder="词语" value="${left}" />
+    <span style="color:var(--text-muted)">↔</span>
+    <input type="text" placeholder="解释/翻译" value="${right}" />
+    <button class="del-btn" onclick="this.parentElement.remove()">✕</button>`;
+  editor.appendChild(row);
+}
+
+function loadSample() {
+  document.getElementById('pairEditor').innerHTML = '';
+  SAMPLE_PAIRS.slice(0,8).forEach(p => addPairRow(p[0], p[1]));
+}
+
+// ── Game ──
+function startGame() {
+  const rows = document.querySelectorAll('.pair-row');
+  pairs = [];
+  rows.forEach(r => {
+    const inputs = r.querySelectorAll('input');
+    const l = inputs[0].value.trim();
+    const ri = inputs[1].value.trim();
+    if (l && ri) pairs.push([l, ri]);
+  });
+  if (pairs.length < 2) { alert('请至少输入 2 对配对！'); return; }
+
+  matched = mistakes = elapsed = 0;
+  shuffledLeft  = shuffle([...pairs.map((p,i) => ({ text: p[0], idx: i }))]);
+  shuffledRight = shuffle([...pairs.map((p,i) => ({ text: p[1], idx: i }))]);
+  selectedLeft = selectedRight = null;
+
+  document.getElementById('matchedCount').textContent = matched;
+  document.getElementById('totalCount').textContent = pairs.length;
+  renderItems();
+  showScreen('gameScreen');
+  clearInterval(timerInterval);
+  timerInterval = setInterval(() => {
+    elapsed++;
+    document.getElementById('timerVal').textContent = elapsed;
+    const pct = Math.max(0, 100 - (elapsed / MAX_TIME * 100));
+    document.getElementById('tbFill').style.width = pct + '%';
+  }, 1000);
+}
+
+function renderItems() {
+  const leftWrap  = document.getElementById('leftItems');
+  const rightWrap = document.getElementById('rightItems');
+  leftWrap.innerHTML = '';
+  rightWrap.innerHTML = '';
+
+  shuffledLeft.forEach((item, i) => {
+    const el = document.createElement('div');
+    el.className = 'item';
+    el.textContent = item.text;
+    el.dataset.index = item.idx;
+    el.onclick = () => selectLeft(i, el);
+    leftWrap.appendChild(el);
+  });
+
+  shuffledRight.forEach((item, i) => {
+    const el = document.createElement('div');
+    el.className = 'item';
+    el.textContent = item.text;
+    el.dataset.index = item.idx;
+    el.onclick = () => selectRight(i, el);
+    rightWrap.appendChild(el);
+  });
+}
+
+function selectLeft(i, el) {
+  if (el.classList.contains('matched') || el.classList.contains('disabled')) return;
+  document.querySelectorAll('#leftItems .item').forEach(e => e.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedLeft = { i, el, idx: shuffledLeft[i].idx };
+  tryMatch();
+}
+
+function selectRight(i, el) {
+  if (el.classList.contains('matched') || el.classList.contains('disabled')) return;
+  document.querySelectorAll('#rightItems .item').forEach(e => e.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedRight = { i, el, idx: shuffledRight[i].idx };
+  tryMatch();
+}
+
+function tryMatch() {
+  if (!selectedLeft || !selectedRight) return;
+  if (selectedLeft.idx === selectedRight.idx) {
+    // Correct!
+    selectedLeft.el.classList.remove('selected');
+    selectedRight.el.classList.remove('selected');
+    selectedLeft.el.classList.add('matched');
+    selectedRight.el.classList.add('matched');
+    matched++;
+    document.getElementById('matchedCount').textContent = matched;
+    selectedLeft = selectedRight = null;
+    if (matched === pairs.length) setTimeout(endGame, 400);
+  } else {
+    // Wrong
+    mistakes++;
+    selectedLeft.el.classList.add('wrong');
+    selectedRight.el.classList.add('wrong');
+    setTimeout(() => {
+      selectedLeft?.el.classList.remove('selected','wrong');
+      selectedRight?.el.classList.remove('selected','wrong');
+      selectedLeft = selectedRight = null;
+    }, 600);
+  }
+}
+
+function endGame() {
+  clearInterval(timerInterval);
+  document.getElementById('resultTime').textContent = elapsed;
+  document.getElementById('resultMistakes').textContent = mistakes > 0 ? `错误 ${mistakes} 次` : '零失误！🎯';
+  showScreen('resultScreen');
+}
+
+function goSetup() {
+  clearInterval(timerInterval);
+  showScreen('setupScreen');
+  initEditor();
+}
+
+function restartGame() { startGame(); }
+
+// ── Utils ──
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+function shuffle(arr) {
+  for (let i=arr.length-1;i>0;i--) {
+    const j=Math.floor(Math.random()*(i+1));
+    [arr[i],arr[j]]=[arr[j],arr[i]];
+  }
+  return arr;
+}
+
+// ── Init ──
+initEditor();
+</script>
+</body>
+</html>

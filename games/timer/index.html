@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>课堂计时器 · 课堂游戏库</title>
+  <style>
+    :root {
+      --primary: #ef4444;
+      --primary-dark: #dc2626;
+      --bg: #0f172a;
+      --surface: #1e293b;
+      --surface2: #334155;
+      --text: #f1f5f9;
+      --text-muted: #94a3b8;
+      --border: #334155;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --blue: #3b82f6;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 24px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+    .topbar a { color: var(--text-muted); text-decoration: none; font-size: .9rem; }
+    .topbar a:hover { color: var(--text); }
+    .topbar-title { font-size: 1.1rem; font-weight: 700; }
+
+    main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 300px;
+    }
+
+    /* ── Clock area ── */
+    .clock-area {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 24px;
+      gap: 32px;
+    }
+
+    /* SVG ring */
+    .ring-wrap {
+      position: relative;
+      width: 320px; height: 320px;
+    }
+    #ringCanvas { position: absolute; inset: 0; }
+    .ring-center {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+    }
+    .ring-label { font-size: .88rem; color: var(--text-muted); letter-spacing: .08em; text-transform: uppercase; }
+    .ring-time {
+      font-size: 4rem;
+      font-weight: 900;
+      letter-spacing: .04em;
+      font-variant-numeric: tabular-nums;
+      transition: color .3s;
+    }
+    .ring-mode { font-size: .88rem; color: var(--text-muted); }
+
+    /* Controls */
+    .controls { display: flex; gap: 14px; align-items: center; }
+    .ctrl-btn {
+      width: 64px; height: 64px;
+      border-radius: 50%;
+      border: none;
+      cursor: pointer;
+      font-size: 1.5rem;
+      display: flex; align-items: center; justify-content: center;
+      transition: transform .1s, opacity .2s;
+    }
+    .ctrl-btn:active { transform: scale(.93); }
+    .ctrl-btn:hover { opacity: .85; }
+    .ctrl-btn.main { width: 80px; height: 80px; font-size: 1.8rem; background: var(--primary); color: #fff; }
+    .ctrl-btn.secondary { background: var(--surface); color: var(--text); }
+
+    /* Quick presets */
+    .presets { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+    .preset-btn {
+      padding: 8px 16px;
+      border-radius: 50px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: .85rem;
+      transition: all .2s;
+    }
+    .preset-btn:hover { background: var(--surface2); color: var(--text); }
+    .preset-btn.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      background: var(--surface);
+      border-left: 1px solid var(--border);
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      overflow-y: auto;
+    }
+    .sidebar h3 { font-size: .95rem; font-weight: 700; margin-bottom: 8px; }
+
+    /* Mode switch */
+    .mode-tabs { display: flex; border-radius: 10px; overflow: hidden; border: 1px solid var(--border); }
+    .mode-tab {
+      flex: 1;
+      padding: 9px;
+      text-align: center;
+      cursor: pointer;
+      font-size: .88rem;
+      background: transparent;
+      color: var(--text-muted);
+      border: none;
+      transition: background .2s, color .2s;
+    }
+    .mode-tab.active { background: var(--primary); color: #fff; }
+
+    /* Time setter */
+    .time-setter {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .time-unit {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+    .time-unit label { font-size: .75rem; color: var(--text-muted); }
+    .time-unit-btns { display: flex; flex-direction: column; gap: 2px; }
+    .tu-btn {
+      width: 28px; height: 22px;
+      background: var(--surface2);
+      border: none; border-radius: 4px;
+      color: var(--text);
+      cursor: pointer;
+      font-size: .75rem;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .tu-btn:hover { background: var(--border); }
+    .time-display-input {
+      font-size: 2rem;
+      font-weight: 900;
+      width: 64px;
+      text-align: center;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      padding: 6px 4px;
+    }
+    .time-display-input:focus { outline: 2px solid var(--primary); }
+    .time-sep { font-size: 1.6rem; font-weight: 700; color: var(--text-muted); padding-bottom: 4px; }
+
+    .divider { border: none; border-top: 1px solid var(--border); }
+
+    /* Sound toggle */
+    .toggle-row { display: flex; align-items: center; justify-content: space-between; }
+    .toggle-row span { font-size: .88rem; }
+    .toggle {
+      position: relative;
+      width: 44px; height: 24px;
+    }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider {
+      position: absolute;
+      inset: 0;
+      background: var(--surface2);
+      border-radius: 50px;
+      cursor: pointer;
+      transition: background .2s;
+    }
+    .toggle-slider::before {
+      content: '';
+      position: absolute;
+      left: 3px; top: 3px;
+      width: 18px; height: 18px;
+      background: #fff;
+      border-radius: 50%;
+      transition: transform .2s;
+    }
+    .toggle input:checked + .toggle-slider { background: var(--success); }
+    .toggle input:checked + .toggle-slider::before { transform: translateX(20px); }
+
+    /* Log */
+    .log-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-height: 160px;
+      overflow-y: auto;
+    }
+    .log-item {
+      font-size: .82rem;
+      padding: 6px 10px;
+      background: var(--surface2);
+      border-radius: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+    .log-item .tag {
+      font-size: .72rem;
+      padding: 2px 8px;
+      border-radius: 50px;
+    }
+
+    @media(max-width:680px) {
+      main { grid-template-columns: 1fr; }
+      .sidebar { border-left: none; border-top: 1px solid var(--border); }
+      .ring-wrap { width: 260px; height: 260px; }
+      .ring-time { font-size: 3rem; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <a href="../../index.html">← 返回游戏库</a>
+  <div class="topbar-title">⏱️ 课堂计时器</div>
+  <div></div>
+</div>
+
+<main>
+  <!-- Clock -->
+  <div class="clock-area">
+    <div class="ring-wrap">
+      <canvas id="ringCanvas" width="320" height="320"></canvas>
+      <div class="ring-center">
+        <div class="ring-label" id="ringLabel">倒计时</div>
+        <div class="ring-time" id="ringTime">05:00</div>
+        <div class="ring-mode" id="ringStatus">就绪</div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button class="ctrl-btn secondary" id="resetBtn" onclick="resetTimer()" title="重置">↺</button>
+      <button class="ctrl-btn main" id="startStopBtn" onclick="toggleTimer()">▶</button>
+      <button class="ctrl-btn secondary" id="lapBtn" onclick="addLap()" title="记录">🏁</button>
+    </div>
+
+    <div class="presets" id="presetBtns">
+      <button class="preset-btn" onclick="setPreset(60)">1分</button>
+      <button class="preset-btn" onclick="setPreset(120)">2分</button>
+      <button class="preset-btn" onclick="setPreset(180)">3分</button>
+      <button class="preset-btn active" onclick="setPreset(300)">5分</button>
+      <button class="preset-btn" onclick="setPreset(600)">10分</button>
+      <button class="preset-btn" onclick="setPreset(900)">15分</button>
+      <button class="preset-btn" onclick="setPreset(1800)">30分</button>
+      <button class="preset-btn" onclick="setPreset(2700)">45分</button>
+    </div>
+  </div>
+
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <!-- Mode -->
+    <div>
+      <h3>模式</h3>
+      <div class="mode-tabs">
+        <button class="mode-tab active" onclick="setMode('countdown',this)">⏬ 倒计时</button>
+        <button class="mode-tab" onclick="setMode('stopwatch',this)">⏫ 正计时</button>
+      </div>
+    </div>
+
+    <!-- Custom time -->
+    <div id="customTimeSection">
+      <h3>自定义时长</h3>
+      <div class="time-setter">
+        <div class="time-unit">
+          <div class="time-unit-btns">
+            <button class="tu-btn" onclick="adjustTime('h',1)">▲</button>
+            <button class="tu-btn" onclick="adjustTime('h',-1)">▼</button>
+          </div>
+          <input type="number" class="time-display-input" id="inputH" value="0" min="0" max="99" onchange="applyInputTime()" />
+          <label>时</label>
+        </div>
+        <div class="time-sep">:</div>
+        <div class="time-unit">
+          <div class="time-unit-btns">
+            <button class="tu-btn" onclick="adjustTime('m',1)">▲</button>
+            <button class="tu-btn" onclick="adjustTime('m',-1)">▼</button>
+          </div>
+          <input type="number" class="time-display-input" id="inputM" value="5" min="0" max="59" onchange="applyInputTime()" />
+          <label>分</label>
+        </div>
+        <div class="time-sep">:</div>
+        <div class="time-unit">
+          <div class="time-unit-btns">
+            <button class="tu-btn" onclick="adjustTime('s',1)">▲</button>
+            <button class="tu-btn" onclick="adjustTime('s',-1)">▼</button>
+          </div>
+          <input type="number" class="time-display-input" id="inputS" value="0" min="0" max="59" onchange="applyInputTime()" />
+          <label>秒</label>
+        </div>
+      </div>
+    </div>
+
+    <hr class="divider" />
+
+    <!-- Settings -->
+    <div>
+      <h3>设置</h3>
+      <div class="toggle-row">
+        <span>🔔 到时提示音</span>
+        <label class="toggle"><input type="checkbox" id="soundToggle" checked /><span class="toggle-slider"></span></label>
+      </div>
+      <div class="toggle-row" style="margin-top:12px">
+        <span>⚠️ 最后10秒警示</span>
+        <label class="toggle"><input type="checkbox" id="warnToggle" checked /><span class="toggle-slider"></span></label>
+      </div>
+      <div class="toggle-row" style="margin-top:12px">
+        <span>🌕 全屏显示</span>
+        <label class="toggle"><input type="checkbox" id="fullscreenToggle" onchange="toggleFullscreen(this)" /></label>
+      </div>
+    </div>
+
+    <hr class="divider" />
+
+    <!-- Lap log -->
+    <div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <h3>🏁 记录</h3>
+        <button onclick="clearLog()" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:.8rem">清空</button>
+      </div>
+      <div class="log-list" id="logList">
+        <div style="color:var(--text-muted);font-size:.82rem;text-align:center;padding:8px">暂无记录</div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+// ── State ──
+let mode       = 'countdown'; // 'countdown' | 'stopwatch'
+let running    = false;
+let interval   = null;
+let totalSecs  = 300;  // 5 min default
+let remaining  = 300;
+let elapsed    = 0;    // for stopwatch
+let lapLog     = [];
+const RADIUS   = 140;
+const CX = 160, CY = 160;
+
+// ── Canvas ──
+const canvas = document.getElementById('ringCanvas');
+const ctx    = canvas.getContext('2d');
+
+function drawRing(fraction, color) {
+  ctx.clearRect(0, 0, 320, 320);
+  // bg ring
+  ctx.beginPath();
+  ctx.arc(CX, CY, RADIUS, 0, Math.PI*2);
+  ctx.strokeStyle = '#1e293b';
+  ctx.lineWidth = 16;
+  ctx.stroke();
+  // progress ring
+  if (fraction > 0) {
+    ctx.beginPath();
+    ctx.arc(CX, CY, RADIUS, -Math.PI/2, -Math.PI/2 + Math.PI*2*fraction);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 16;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+  }
+}
+
+function ringColor(fraction) {
+  if (!document.getElementById('warnToggle').checked) return 'var(--blue)';
+  if (mode === 'stopwatch') return 'var(--blue)';
+  if (fraction > 0.5) return '#3b82f6';
+  if (fraction > 0.2) return 'var(--warning)';
+  return 'var(--primary)';
+}
+
+function updateDisplay() {
+  let secs = mode === 'countdown' ? remaining : elapsed;
+  const h  = Math.floor(secs / 3600);
+  const m  = Math.floor((secs % 3600) / 60);
+  const s  = secs % 60;
+  const str = h > 0
+    ? `${pad(h)}:${pad(m)}:${pad(s)}`
+    : `${pad(m)}:${pad(s)}`;
+  document.getElementById('ringTime').textContent = str;
+
+  let fraction = mode === 'countdown'
+    ? remaining / totalSecs
+    : Math.min(1, elapsed / 3600); // stopwatch: fill in 1 hour
+  const color = ringColor(fraction);
+  drawRing(fraction, color);
+
+  // Color the time text
+  const timeEl = document.getElementById('ringTime');
+  if (mode === 'countdown' && document.getElementById('warnToggle').checked) {
+    timeEl.style.color = remaining <= 10 ? '#ef4444' : remaining <= 60 ? '#f59e0b' : '#f1f5f9';
+  } else {
+    timeEl.style.color = '#f1f5f9';
+  }
+}
+
+// ── Timer control ──
+function toggleTimer() {
+  if (running) {
+    pauseTimer();
+  } else {
+    startTimer();
+  }
+}
+
+function startTimer() {
+  if (mode === 'countdown' && remaining === 0) return;
+  running = true;
+  document.getElementById('startStopBtn').textContent = '⏸';
+  document.getElementById('ringStatus').textContent = '进行中';
+  interval = setInterval(tick, 1000);
+}
+
+function pauseTimer() {
+  running = false;
+  clearInterval(interval);
+  document.getElementById('startStopBtn').textContent = '▶';
+  document.getElementById('ringStatus').textContent = '已暂停';
+}
+
+function resetTimer() {
+  pauseTimer();
+  if (mode === 'countdown') { remaining = totalSecs; }
+  else { elapsed = 0; }
+  document.getElementById('ringStatus').textContent = '就绪';
+  updateDisplay();
+}
+
+function tick() {
+  if (mode === 'countdown') {
+    remaining = Math.max(0, remaining - 1);
+    if (remaining === 0) {
+      pauseTimer();
+      document.getElementById('ringStatus').textContent = '时间到！';
+      if (document.getElementById('soundToggle').checked) playBeep();
+    }
+  } else {
+    elapsed++;
+  }
+  updateDisplay();
+}
+
+// ── Presets ──
+function setPreset(secs) {
+  document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  totalSecs = secs;
+  remaining = secs;
+  const h = Math.floor(secs/3600);
+  const m = Math.floor((secs%3600)/60);
+  const s = secs%60;
+  document.getElementById('inputH').value = h;
+  document.getElementById('inputM').value = m;
+  document.getElementById('inputS').value = s;
+  if (!running) { document.getElementById('ringStatus').textContent = '就绪'; updateDisplay(); }
+}
+
+function adjustTime(unit, delta) {
+  const hEl = document.getElementById('inputH');
+  const mEl = document.getElementById('inputM');
+  const sEl = document.getElementById('inputS');
+  if (unit==='h') hEl.value = Math.max(0, Math.min(99, +hEl.value + delta));
+  if (unit==='m') mEl.value = Math.max(0, Math.min(59, +mEl.value + delta));
+  if (unit==='s') sEl.value = Math.max(0, Math.min(59, +sEl.value + delta));
+  applyInputTime();
+}
+
+function applyInputTime() {
+  const h = parseInt(document.getElementById('inputH').value)||0;
+  const m = parseInt(document.getElementById('inputM').value)||0;
+  const s = parseInt(document.getElementById('inputS').value)||0;
+  totalSecs = h*3600 + m*60 + s;
+  remaining = totalSecs;
+  document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+  if (!running) { document.getElementById('ringStatus').textContent = '就绪'; updateDisplay(); }
+}
+
+// ── Mode ──
+function setMode(m, btn) {
+  mode = m;
+  document.querySelectorAll('.mode-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('customTimeSection').style.display = m==='countdown' ? '' : 'none';
+  document.getElementById('ringLabel').textContent = m==='countdown' ? '倒计时' : '正计时';
+  resetTimer();
+}
+
+// ── Lap ──
+function addLap() {
+  const secs = mode === 'countdown' ? totalSecs - remaining : elapsed;
+  const h = Math.floor(secs/3600);
+  const m = Math.floor((secs%3600)/60);
+  const s = secs%60;
+  const t = h>0 ? `${pad(h)}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
+  lapLog.unshift({ t, mode, running });
+  renderLog();
+}
+
+function clearLog() { lapLog = []; renderLog(); }
+
+function renderLog() {
+  const list = document.getElementById('logList');
+  list.innerHTML = lapLog.length ? lapLog.map((l,i) =>
+    `<div class="log-item">
+      <span>${lapLog.length-i}. ${l.t}</span>
+      <span class="tag" style="background:var(--surface2);color:var(--text-muted)">${l.mode==='countdown'?'倒':'正'}</span>
+    </div>`
+  ).join('') : '<div style="color:var(--text-muted);font-size:.82rem;text-align:center;padding:8px">暂无记录</div>';
+}
+
+// ── Sound ──
+function playBeep() {
+  try {
+    const ctx2 = new (window.AudioContext || window.webkitAudioContext)();
+    const osc  = ctx2.createOscillator();
+    const gain = ctx2.createGain();
+    osc.connect(gain); gain.connect(ctx2.destination);
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(880, ctx2.currentTime);
+    gain.gain.setValueAtTime(0.6, ctx2.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx2.currentTime + 1.5);
+    osc.start(ctx2.currentTime);
+    osc.stop(ctx2.currentTime + 1.5);
+  } catch(e) {}
+}
+
+// ── Fullscreen ──
+function toggleFullscreen(cb) {
+  if (cb.checked) {
+    document.documentElement.requestFullscreen?.();
+  } else {
+    document.exitFullscreen?.();
+  }
+}
+document.addEventListener('fullscreenchange', () => {
+  document.getElementById('fullscreenToggle').checked = !!document.fullscreenElement;
+});
+
+// ── Utils ──
+function pad(n) { return String(n).padStart(2,'0'); }
+
+// ── Init ──
+updateDisplay();
+</script>
+</body>
+</html>

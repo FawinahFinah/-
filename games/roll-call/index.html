@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>随机点名 · 课堂游戏库</title>
+  <style>
+    :root {
+      --primary: #4f46e5;
+      --bg: #0f172a;
+      --surface: #1e293b;
+      --surface2: #334155;
+      --text: #f1f5f9;
+      --text-muted: #94a3b8;
+      --border: #334155;
+      --success: #10b981;
+      --warning: #f59e0b;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 24px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+    .topbar a { color: var(--text-muted); text-decoration: none; font-size: .9rem; }
+    .topbar a:hover { color: var(--text); }
+    .topbar-title { font-size: 1.1rem; font-weight: 700; }
+
+    main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 360px;
+      gap: 0;
+    }
+
+    /* ── Wheel area ── */
+    .wheel-area {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 24px;
+      gap: 24px;
+    }
+
+    .wheel-container {
+      position: relative;
+      width: 380px;
+      height: 380px;
+    }
+    #wheelCanvas { border-radius: 50%; }
+
+    .pointer {
+      position: absolute;
+      top: -18px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 0;
+      height: 0;
+      border-left: 14px solid transparent;
+      border-right: 14px solid transparent;
+      border-top: 30px solid #fff;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,.5));
+      z-index: 10;
+    }
+
+    .spin-btn {
+      width: 100px; height: 100px;
+      border-radius: 50%;
+      background: var(--primary);
+      border: 4px solid #fff;
+      box-shadow: 0 0 0 4px var(--primary);
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 20;
+      transition: transform .1s;
+    }
+    .spin-btn:active { transform: translate(-50%, -50%) scale(.95); }
+    .spin-btn:disabled { background: var(--surface2); box-shadow: none; cursor: not-allowed; }
+
+    /* result banner */
+    .result-banner {
+      background: var(--surface);
+      border-radius: 16px;
+      padding: 20px 32px;
+      text-align: center;
+      min-width: 260px;
+    }
+    .result-banner .lbl { color: var(--text-muted); font-size: .88rem; margin-bottom: 6px; }
+    .result-banner .name { font-size: 2.6rem; font-weight: 900; color: var(--warning); }
+    .result-banner.hidden { visibility: hidden; }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      background: var(--surface);
+      border-left: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      padding: 24px;
+      gap: 16px;
+      overflow-y: auto;
+    }
+    .sidebar h3 { font-size: 1rem; font-weight: 700; }
+
+    .name-input-wrap {
+      display: flex;
+      gap: 8px;
+    }
+    .name-input-wrap input {
+      flex: 1;
+      padding: 8px 12px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: .9rem;
+    }
+    .name-input-wrap input:focus { outline: 2px solid var(--primary); }
+    .btn {
+      padding: 8px 14px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      font-size: .88rem;
+      font-weight: 600;
+      transition: opacity .2s;
+    }
+    .btn:hover { opacity: .85; }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-danger  { background: #ef4444; color: #fff; }
+    .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+    .btn-sm { padding: 5px 10px; font-size: .78rem; }
+
+    .textarea-wrap textarea {
+      width: 100%;
+      padding: 10px 12px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: .88rem;
+      resize: vertical;
+      min-height: 80px;
+      font-family: inherit;
+    }
+    .textarea-wrap textarea:focus { outline: 2px solid var(--primary); }
+
+    .names-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      max-height: 220px;
+      overflow-y: auto;
+      padding: 4px 0;
+    }
+    .name-chip {
+      background: var(--surface2);
+      border-radius: 50px;
+      padding: 5px 12px;
+      font-size: .85rem;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .name-chip .del {
+      cursor: pointer;
+      color: var(--text-muted);
+      font-size: .75rem;
+      line-height: 1;
+    }
+    .name-chip .del:hover { color: #ef4444; }
+    .name-chip.picked { background: rgba(245,158,11,.2); color: var(--warning); }
+
+    .history-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-height: 160px;
+      overflow-y: auto;
+    }
+    .history-item {
+      font-size: .85rem;
+      padding: 6px 10px;
+      background: var(--surface2);
+      border-radius: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .history-item .num { color: var(--text-muted); font-size: .75rem; }
+
+    .divider { border: none; border-top: 1px solid var(--border); }
+
+    /* Modal overlay */
+    .modal {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.6);
+      align-items: center; justify-content: center;
+      z-index: 100;
+    }
+    .modal.show { display: flex; }
+    .modal-box {
+      background: var(--surface);
+      border-radius: 20px;
+      padding: 40px;
+      text-align: center;
+      max-width: 360px;
+      width: 90%;
+      animation: popIn .3s cubic-bezier(.34,1.56,.64,1);
+    }
+    @keyframes popIn {
+      from { transform: scale(.6); opacity: 0; }
+      to   { transform: scale(1);  opacity: 1; }
+    }
+    .modal-box .big-name { font-size: 3.5rem; font-weight: 900; color: var(--warning); margin: 12px 0; }
+    .modal-box .subtitle { color: var(--text-muted); font-size: .9rem; margin-bottom: 20px; }
+
+    @media(max-width: 700px) {
+      main { grid-template-columns: 1fr; }
+      .sidebar { border-left: none; border-top: 1px solid var(--border); }
+      .wheel-container { width: 300px; height: 300px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <a href="../../index.html">← 返回游戏库</a>
+  <div class="topbar-title">🎡 随机点名</div>
+  <div></div>
+</div>
+
+<main>
+  <!-- Wheel -->
+  <div class="wheel-area">
+    <div class="wheel-container">
+      <div class="pointer"></div>
+      <canvas id="wheelCanvas" width="380" height="380"></canvas>
+      <button class="spin-btn" id="spinBtn" onclick="spin()">开始<br>转动</button>
+    </div>
+    <div class="result-banner hidden" id="resultBanner">
+      <div class="lbl">🎯 本次点到</div>
+      <div class="name" id="resultName">—</div>
+    </div>
+  </div>
+
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <h3>👥 学生名单</h3>
+
+    <div class="name-input-wrap">
+      <input type="text" id="nameInput" placeholder="输入姓名，回车添加" onkeydown="handleNameKey(event)" />
+      <button class="btn btn-primary" onclick="addName()">添加</button>
+    </div>
+
+    <div>
+      <div style="font-size:.82rem;color:var(--text-muted);margin-bottom:6px">批量导入（每行一个姓名）</div>
+      <div class="textarea-wrap">
+        <textarea id="batchInput" placeholder="张三&#10;李四&#10;王五"></textarea>
+      </div>
+      <button class="btn btn-outline" style="margin-top:6px;width:100%" onclick="batchImport()">批量导入</button>
+    </div>
+
+    <div class="names-list" id="namesList"></div>
+
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-outline btn-sm" onclick="loadDefault()" style="flex:1">载入示例名单</button>
+      <button class="btn btn-danger btn-sm" onclick="clearAll()" style="flex:1">清空名单</button>
+    </div>
+
+    <hr class="divider" />
+
+    <div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <h3>📋 点名记录</h3>
+        <button class="btn btn-outline btn-sm" onclick="clearHistory()">清空</button>
+      </div>
+      <div class="history-list" id="historyList">
+        <div style="color:var(--text-muted);font-size:.85rem;text-align:center;padding:12px">暂无记录</div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- Result modal -->
+<div class="modal" id="resultModal">
+  <div class="modal-box">
+    <div style="font-size:2rem">🎯</div>
+    <div class="big-name" id="modalName"></div>
+    <div class="subtitle">恭喜被点到！</div>
+    <button class="btn btn-primary" style="width:100%;padding:12px" onclick="closeModal()">好的 👍</button>
+  </div>
+</div>
+
+<script>
+  const COLORS = ['#4f46e5','#7c3aed','#2563eb','#0891b2','#059669','#d97706','#dc2626','#9333ea','#0284c7','#16a34a'];
+  const DEFAULT_NAMES = ['小明','小红','小华','小丽','小强','小芳','小涛','小雪','小刚','小燕','小军','小静'];
+
+  let names = [...DEFAULT_NAMES];
+  let history = [];
+  let spinning = false;
+  let angle = 0;
+  let pickedIndex = -1;
+
+  // ── Canvas setup ──
+  const canvas = document.getElementById('wheelCanvas');
+  const ctx    = canvas.getContext('2d');
+  const SIZE   = canvas.width;
+  const CX = SIZE/2, CY = SIZE/2, R = SIZE/2 - 8;
+
+  function drawWheel(rotation = 0) {
+    ctx.clearRect(0, 0, SIZE, SIZE);
+    if (names.length === 0) {
+      ctx.fillStyle = '#334155';
+      ctx.beginPath(); ctx.arc(CX, CY, R, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = 'bold 16px "PingFang SC",sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('请先添加学生', CX, CY);
+      return;
+    }
+    const slice = (Math.PI * 2) / names.length;
+    names.forEach((name, i) => {
+      const start = rotation + i * slice;
+      const end   = start + slice;
+      const color = COLORS[i % COLORS.length];
+      // sector
+      ctx.beginPath();
+      ctx.moveTo(CX, CY);
+      ctx.arc(CX, CY, R, start, end);
+      ctx.closePath();
+      ctx.fillStyle = color;
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,.3)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      // label
+      ctx.save();
+      ctx.translate(CX, CY);
+      ctx.rotate(start + slice / 2);
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#fff';
+      const fontSize = Math.max(11, Math.min(18, Math.floor(200 / names.length)));
+      ctx.font = `bold ${fontSize}px "PingFang SC",sans-serif`;
+      ctx.shadowColor = 'rgba(0,0,0,.4)';
+      ctx.shadowBlur = 3;
+      ctx.fillText(name.length > 6 ? name.slice(0,6)+'…' : name, R - 12, 0);
+      ctx.restore();
+    });
+    // center circle
+    ctx.beginPath();
+    ctx.arc(CX, CY, 44, 0, Math.PI * 2);
+    ctx.fillStyle = '#0f172a';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,.2)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+
+  // ── Spin ──
+  function spin() {
+    if (spinning || names.length < 2) return;
+    spinning = true;
+    document.getElementById('spinBtn').disabled = true;
+    document.getElementById('resultBanner').classList.add('hidden');
+
+    const totalRotation = (Math.PI * 2) * (5 + Math.random() * 5);
+    const duration = 3000 + Math.random() * 1500;
+    const start = performance.now();
+    const startAngle = angle;
+
+    function easeOut(t) { return 1 - Math.pow(1 - t, 4); }
+
+    function frame(now) {
+      const elapsed = now - start;
+      const t = Math.min(1, elapsed / duration);
+      angle = startAngle + totalRotation * easeOut(t);
+      drawWheel(angle);
+      if (t < 1) { requestAnimationFrame(frame); return; }
+      spinning = false;
+      document.getElementById('spinBtn').disabled = false;
+      // pointer is at top (angle = -π/2 from positive x-axis)
+      // The segment under pointer: normalise angle
+      const norm = ((angle % (Math.PI*2)) + Math.PI*2) % (Math.PI*2);
+      const slice = (Math.PI * 2) / names.length;
+      // pointer is at angle 0 (top), which is -π/2 in canvas coords after rotation
+      // pointer direction in wheel-local frame = (3π/2 - norm) mod 2π
+      const pointerAngle = ((3 * Math.PI / 2 - norm) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
+      pickedIndex = Math.floor(pointerAngle / slice) % names.length;
+      showResult(names[pickedIndex]);
+    }
+    requestAnimationFrame(frame);
+  }
+
+  function showResult(name) {
+    history.unshift({ name, time: new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit',second:'2-digit'}) });
+    renderHistory();
+    document.getElementById('resultName').textContent = name;
+    document.getElementById('resultBanner').classList.remove('hidden');
+    document.getElementById('modalName').textContent = name;
+    document.getElementById('resultModal').classList.add('show');
+    // mark chip
+    document.querySelectorAll('.name-chip').forEach((c,i) => {
+      c.classList.toggle('picked', i === pickedIndex);
+    });
+  }
+
+  function closeModal() {
+    document.getElementById('resultModal').classList.remove('show');
+  }
+
+  // ── Name management ──
+  function handleNameKey(e) { if (e.key === 'Enter') addName(); }
+
+  function addName() {
+    const val = document.getElementById('nameInput').value.trim();
+    if (!val) return;
+    names.push(val);
+    document.getElementById('nameInput').value = '';
+    renderNames();
+    drawWheel(angle);
+  }
+
+  function batchImport() {
+    const lines = document.getElementById('batchInput').value.trim().split('\n').map(l => l.trim()).filter(Boolean);
+    if (!lines.length) return;
+    names.push(...lines);
+    document.getElementById('batchInput').value = '';
+    renderNames();
+    drawWheel(angle);
+  }
+
+  function removeName(idx) {
+    names.splice(idx, 1);
+    renderNames();
+    drawWheel(angle);
+  }
+
+  function clearAll() {
+    if (!confirm('确定清空所有学生名单？')) return;
+    names = [];
+    renderNames();
+    drawWheel(angle);
+  }
+
+  function loadDefault() {
+    names = [...DEFAULT_NAMES];
+    renderNames();
+    drawWheel(angle);
+  }
+
+  function clearHistory() {
+    history = [];
+    renderHistory();
+  }
+
+  function renderNames() {
+    const list = document.getElementById('namesList');
+    list.innerHTML = names.length ? names.map((n,i) =>
+      `<div class="name-chip" id="chip${i}">
+        ${n}
+        <span class="del" onclick="removeName(${i})">✕</span>
+      </div>`
+    ).join('') : '<div style="color:var(--text-muted);font-size:.85rem">名单为空</div>';
+  }
+
+  function renderHistory() {
+    const list = document.getElementById('historyList');
+    list.innerHTML = history.length ? history.map((h, i) =>
+      `<div class="history-item">
+        <span>${i+1}. ${h.name}</span>
+        <span class="num">${h.time}</span>
+      </div>`
+    ).join('') : '<div style="color:var(--text-muted);font-size:.85rem;text-align:center;padding:12px">暂无记录</div>';
+  }
+
+  // ── Init ──
+  renderNames();
+  drawWheel();
+</script>
+</body>
+</html>

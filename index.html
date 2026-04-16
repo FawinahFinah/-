@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>课堂游戏库</title>
+  <style>
+    :root {
+      --primary: #4f46e5;
+      --primary-light: #818cf8;
+      --secondary: #06b6d4;
+      --accent: #f59e0b;
+      --danger: #ef4444;
+      --success: #10b981;
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --text: #1e293b;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+      --shadow: 0 4px 24px rgba(79,70,229,0.10);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    header {
+      background: linear-gradient(135deg, var(--primary) 0%, #7c3aed 100%);
+      color: #fff;
+      padding: 48px 24px 64px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+    header::before {
+      content: '';
+      position: absolute;
+      top: -60px; right: -60px;
+      width: 240px; height: 240px;
+      background: rgba(255,255,255,0.07);
+      border-radius: 50%;
+    }
+    header::after {
+      content: '';
+      position: absolute;
+      bottom: -80px; left: -40px;
+      width: 300px; height: 300px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 50%;
+    }
+    .header-emoji { font-size: 56px; display: block; margin-bottom: 12px; }
+    header h1 { font-size: 2.6rem; font-weight: 800; letter-spacing: .02em; }
+    header p { margin-top: 10px; font-size: 1.1rem; opacity: .85; }
+
+    /* ── Search / Filter ── */
+    .toolbar {
+      max-width: 900px;
+      margin: -28px auto 0;
+      padding: 0 16px;
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      position: relative;
+      z-index: 10;
+    }
+    .search-box {
+      flex: 1;
+      min-width: 220px;
+      display: flex;
+      align-items: center;
+      background: #fff;
+      border-radius: 50px;
+      box-shadow: var(--shadow);
+      padding: 0 20px;
+      gap: 8px;
+    }
+    .search-box input {
+      border: none;
+      outline: none;
+      font-size: 1rem;
+      padding: 14px 0;
+      flex: 1;
+      background: transparent;
+      color: var(--text);
+    }
+    .search-box span { color: var(--text-muted); font-size: 1.1rem; }
+    .filter-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+    .filter-btn {
+      padding: 10px 20px;
+      border-radius: 50px;
+      border: 2px solid transparent;
+      background: #fff;
+      color: var(--text-muted);
+      font-size: .9rem;
+      cursor: pointer;
+      box-shadow: var(--shadow);
+      transition: all .2s;
+      white-space: nowrap;
+    }
+    .filter-btn:hover, .filter-btn.active {
+      background: var(--primary);
+      color: #fff;
+      border-color: var(--primary);
+    }
+
+    /* ── Section headings ── */
+    .section {
+      max-width: 900px;
+      margin: 48px auto 0;
+      padding: 0 16px;
+    }
+    .section h2 {
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .section h2 span { font-size: 1.5rem; }
+
+    /* ── Cards grid ── */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 20px;
+    }
+    .card {
+      background: var(--card-bg);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      transition: transform .22s, box-shadow .22s;
+      cursor: pointer;
+      text-decoration: none;
+      color: inherit;
+      display: flex;
+      flex-direction: column;
+    }
+    .card:hover {
+      transform: translateY(-6px);
+      box-shadow: 0 12px 40px rgba(79,70,229,0.18);
+    }
+    .card-banner {
+      height: 110px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 3.2rem;
+      position: relative;
+    }
+    .card-body { padding: 18px 20px 20px; flex: 1; display: flex; flex-direction: column; gap: 8px; }
+    .card-title { font-size: 1.15rem; font-weight: 700; }
+    .card-desc { font-size: .9rem; color: var(--text-muted); line-height: 1.5; flex: 1; }
+    .card-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+    .tag {
+      font-size: .75rem;
+      padding: 3px 10px;
+      border-radius: 50px;
+      background: #f1f5f9;
+      color: var(--text-muted);
+    }
+    .card-action {
+      padding: 12px 20px;
+      background: #f8fafc;
+      font-size: .88rem;
+      font-weight: 600;
+      color: var(--primary);
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    /* ── Question bank section ── */
+    .qb-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+      gap: 16px;
+    }
+    .qb-card {
+      background: #fff;
+      border-radius: 14px;
+      box-shadow: var(--shadow);
+      padding: 20px 22px;
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      text-decoration: none;
+      color: inherit;
+      transition: transform .2s, box-shadow .2s;
+    }
+    .qb-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 10px 32px rgba(79,70,229,0.15);
+    }
+    .qb-icon {
+      font-size: 2rem;
+      width: 52px; height: 52px;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 12px;
+      flex-shrink: 0;
+    }
+    .qb-info h3 { font-size: 1rem; font-weight: 700; }
+    .qb-info p { font-size: .85rem; color: var(--text-muted); margin-top: 4px; line-height: 1.4; }
+    .qb-info .dl {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      margin-top: 10px;
+      font-size: .82rem;
+      color: var(--primary);
+      font-weight: 600;
+    }
+
+    /* ── Footer ── */
+    footer {
+      text-align: center;
+      padding: 48px 16px 32px;
+      color: var(--text-muted);
+      font-size: .88rem;
+    }
+
+    /* ── Responsive ── */
+    @media(max-width: 600px) {
+      header h1 { font-size: 1.8rem; }
+      .toolbar { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <span class="header-emoji">🎮</span>
+  <h1>课堂游戏库</h1>
+  <p>寓教于乐 · 让每一堂课都充满活力</p>
+</header>
+
+<div class="toolbar">
+  <div class="search-box">
+    <span>🔍</span>
+    <input type="text" id="searchInput" placeholder="搜索游戏…" oninput="filterCards()" />
+  </div>
+  <div class="filter-btns">
+    <button class="filter-btn active" onclick="setFilter('all', this)">全部</button>
+    <button class="filter-btn" onclick="setFilter('互动', this)">互动</button>
+    <button class="filter-btn" onclick="setFilter('竞赛', this)">竞赛</button>
+    <button class="filter-btn" onclick="setFilter('记忆', this)">记忆</button>
+    <button class="filter-btn" onclick="setFilter('管理', this)">管理</button>
+  </div>
+</div>
+
+<!-- ── Games ── -->
+<section class="section" id="gamesSection">
+  <h2><span>🕹️</span> 课堂游戏</h2>
+  <div class="grid" id="gameGrid">
+
+    <a class="card" href="games/quiz/index.html" data-tags="竞赛 互动">
+      <div class="card-banner" style="background:linear-gradient(135deg,#4f46e5,#818cf8)">🧠</div>
+      <div class="card-body">
+        <div class="card-title">答题竞赛</div>
+        <div class="card-desc">单选 / 多选题对战，支持导入题库 Excel，实时计分、限时作答，课堂氛围感满分。</div>
+        <div class="card-tags">
+          <span class="tag">竞赛</span>
+          <span class="tag">互动</span>
+          <span class="tag">支持导入题库</span>
+        </div>
+      </div>
+      <div class="card-action">立即游玩 <span>→</span></div>
+    </a>
+
+    <a class="card" href="games/roll-call/index.html" data-tags="互动 管理">
+      <div class="card-banner" style="background:linear-gradient(135deg,#06b6d4,#0284c7)">🎡</div>
+      <div class="card-body">
+        <div class="card-title">随机点名</div>
+        <div class="card-desc">炫酷转盘随机抽取学生，支持自定义名单，让点名变成一件期待的事！</div>
+        <div class="card-tags">
+          <span class="tag">互动</span>
+          <span class="tag">管理</span>
+        </div>
+      </div>
+      <div class="card-action">立即游玩 <span>→</span></div>
+    </a>
+
+    <a class="card" href="games/matching/index.html" data-tags="互动 竞赛">
+      <div class="card-banner" style="background:linear-gradient(135deg,#10b981,#059669)">🔗</div>
+      <div class="card-body">
+        <div class="card-title">单词配对</div>
+        <div class="card-desc">将左侧词语与右侧解释连线配对，限时挑战，适合词汇复习、概念归纳。</div>
+        <div class="card-tags">
+          <span class="tag">互动</span>
+          <span class="tag">竞赛</span>
+        </div>
+      </div>
+      <div class="card-action">立即游玩 <span>→</span></div>
+    </a>
+
+    <a class="card" href="games/memory/index.html" data-tags="记忆 互动">
+      <div class="card-banner" style="background:linear-gradient(135deg,#f59e0b,#d97706)">🃏</div>
+      <div class="card-body">
+        <div class="card-title">记忆翻牌</div>
+        <div class="card-desc">经典翻牌配对游戏，支持自定义卡片内容，训练记忆力与专注力的好帮手。</div>
+        <div class="card-tags">
+          <span class="tag">记忆</span>
+          <span class="tag">互动</span>
+        </div>
+      </div>
+      <div class="card-action">立即游玩 <span>→</span></div>
+    </a>
+
+    <a class="card" href="games/timer/index.html" data-tags="管理">
+      <div class="card-banner" style="background:linear-gradient(135deg,#ef4444,#dc2626)">⏱️</div>
+      <div class="card-body">
+        <div class="card-title">课堂计时器</div>
+        <div class="card-desc">可视化倒计时 / 正计时，支持自定义时长与提示音，帮助高效管理课堂节奏。</div>
+        <div class="card-tags">
+          <span class="tag">管理</span>
+        </div>
+      </div>
+      <div class="card-action">立即游玩 <span>→</span></div>
+    </a>
+
+  </div>
+</section>
+
+<!-- ── Question Banks ── -->
+<section class="section">
+  <h2><span>📚</span> 题库下载</h2>
+  <div class="qb-grid">
+
+    <a class="qb-card" href="question-banks/英语词汇题库.xlsx" download>
+      <div class="qb-icon" style="background:#dbeafe">📘</div>
+      <div class="qb-info">
+        <h3>英语词汇题库</h3>
+        <p>覆盖初中常见词汇，含词义、拼写、选择三种题型，共 30 题。</p>
+        <span class="dl">⬇ 下载 XLSX</span>
+      </div>
+    </a>
+
+    <a class="qb-card" href="question-banks/数学计算题库.xlsx" download>
+      <div class="qb-icon" style="background:#dcfce7">📗</div>
+      <div class="qb-info">
+        <h3>数学计算题库</h3>
+        <p>整数、分数、百分比等运算练习，适合小学高年级及初中。</p>
+        <span class="dl">⬇ 下载 XLSX</span>
+      </div>
+    </a>
+
+    <a class="qb-card" href="question-banks/常识百科题库.xlsx" download>
+      <div class="qb-icon" style="background:#fef3c7">📙</div>
+      <div class="qb-info">
+        <h3>常识百科题库</h3>
+        <p>地理、历史、科学常识趣味问答，适合综合素养课或班会活动。</p>
+        <span class="dl">⬇ 下载 XLSX</span>
+      </div>
+    </a>
+
+  </div>
+</section>
+
+<!-- ── How to use ── -->
+<section class="section" style="margin-bottom:0">
+  <h2><span>💡</span> 使用说明</h2>
+  <div style="background:#fff;border-radius:14px;box-shadow:var(--shadow);padding:24px 28px;display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:20px">
+    <div>
+      <div style="font-size:1.6rem;margin-bottom:8px">🎯</div>
+      <div style="font-weight:700;margin-bottom:4px">点击游戏卡片</div>
+      <div style="font-size:.88rem;color:var(--text-muted)">在浏览器中直接打开，无需安装任何插件。</div>
+    </div>
+    <div>
+      <div style="font-size:1.6rem;margin-bottom:8px">📥</div>
+      <div style="font-weight:700;margin-bottom:4px">导入题库</div>
+      <div style="font-size:.88rem;color:var(--text-muted)">下载题库 Excel，在游戏页面点击"导入"即可加载题目。</div>
+    </div>
+    <div>
+      <div style="font-size:1.6rem;margin-bottom:8px">✏️</div>
+      <div style="font-weight:700;margin-bottom:4px">自定义内容</div>
+      <div style="font-size:.88rem;color:var(--text-muted)">修改 Excel 表格内容，可定制专属题目和学生名单。</div>
+    </div>
+    <div>
+      <div style="font-size:1.6rem;margin-bottom:8px">📺</div>
+      <div style="font-weight:700;margin-bottom:4px">投屏使用</div>
+      <div style="font-size:.88rem;color:var(--text-muted)">推荐全屏展示，配合大屏幕或投影仪效果更佳。</div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <p>🎮 课堂游戏库 · 让学习更有趣</p>
+  <p style="margin-top:6px">所有游戏均为纯前端实现，无需网络，可离线使用</p>
+</footer>
+
+<script>
+  let currentFilter = 'all';
+
+  function filterCards() {
+    const query = document.getElementById('searchInput').value.toLowerCase();
+    document.querySelectorAll('#gameGrid .card').forEach(card => {
+      const title = card.querySelector('.card-title').textContent.toLowerCase();
+      const desc  = card.querySelector('.card-desc').textContent.toLowerCase();
+      const tags  = (card.dataset.tags || '').toLowerCase();
+      const matchSearch = !query || title.includes(query) || desc.includes(query) || tags.includes(query);
+      const matchFilter = currentFilter === 'all' || tags.includes(currentFilter);
+      card.style.display = (matchSearch && matchFilter) ? '' : 'none';
+    });
+  }
+
+  function setFilter(tag, btn) {
+    currentFilter = tag;
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    filterCards();
+  }
+</script>
+</body>
+</html>

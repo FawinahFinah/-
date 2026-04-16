@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>答题竞赛 · 课堂游戏库</title>
+  <!-- SheetJS for Excel import -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    :root {
+      --primary: #4f46e5;
+      --primary-light: #818cf8;
+      --success: #10b981;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+      --bg: #0f172a;
+      --surface: #1e293b;
+      --surface2: #334155;
+      --text: #f1f5f9;
+      --text-muted: #94a3b8;
+      --border: #334155;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Top bar ── */
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 24px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .topbar a { color: var(--text-muted); text-decoration: none; font-size: .9rem; }
+    .topbar a:hover { color: var(--text); }
+    .topbar-title { font-size: 1.1rem; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+    .topbar-right { display: flex; gap: 10px; align-items: center; }
+    .btn {
+      padding: 8px 18px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      font-size: .9rem;
+      font-weight: 600;
+      transition: opacity .2s;
+    }
+    .btn:hover { opacity: .85; }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+    .btn-success { background: var(--success); color: #fff; }
+    .btn-danger  { background: var(--danger);  color: #fff; }
+    .btn-sm { padding: 6px 12px; font-size: .82rem; }
+
+    /* ── Screens ── */
+    .screen { display: none; flex: 1; }
+    .screen.active { display: flex; flex-direction: column; }
+
+    /* ── Setup screen ── */
+    #setupScreen {
+      align-items: center;
+      justify-content: center;
+      padding: 40px 16px;
+    }
+    .setup-card {
+      background: var(--surface);
+      border-radius: 20px;
+      padding: 40px;
+      width: 100%;
+      max-width: 560px;
+      box-shadow: 0 8px 40px rgba(0,0,0,.4);
+    }
+    .setup-card h2 { font-size: 1.6rem; margin-bottom: 8px; }
+    .setup-card p { color: var(--text-muted); margin-bottom: 28px; font-size: .95rem; }
+    .field { margin-bottom: 20px; }
+    .field label { display: block; font-size: .9rem; color: var(--text-muted); margin-bottom: 6px; }
+    .field input, .field select {
+      width: 100%;
+      padding: 10px 14px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: .95rem;
+    }
+    .field input:focus, .field select:focus { outline: 2px solid var(--primary); }
+    .upload-area {
+      border: 2px dashed var(--border);
+      border-radius: 12px;
+      padding: 28px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color .2s;
+    }
+    .upload-area:hover { border-color: var(--primary-light); }
+    .upload-area p { color: var(--text-muted); font-size: .9rem; margin-top: 8px; }
+    .upload-area .icon { font-size: 2rem; }
+    #fileInput { display: none; }
+    .question-count { display: inline-block; margin-top: 10px; background: var(--surface2); padding: 4px 12px; border-radius: 50px; font-size: .85rem; color: var(--success); }
+
+    /* ── Game screen ── */
+    #gameScreen {
+      padding: 24px 16px;
+      align-items: center;
+    }
+    .game-wrapper { width: 100%; max-width: 720px; }
+
+    /* progress / stats bar */
+    .stats-bar {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    .stat-box {
+      background: var(--surface);
+      border-radius: 10px;
+      padding: 10px 18px;
+      text-align: center;
+      min-width: 80px;
+    }
+    .stat-box .val { font-size: 1.4rem; font-weight: 800; }
+    .stat-box .lbl { font-size: .72rem; color: var(--text-muted); margin-top: 2px; }
+    .progress-wrap { flex: 1; }
+    .progress-label { font-size: .82rem; color: var(--text-muted); margin-bottom: 4px; }
+    .progress-bar { height: 8px; background: var(--surface2); border-radius: 50px; overflow: hidden; }
+    .progress-fill { height: 100%; background: var(--primary); transition: width .4s; border-radius: 50px; }
+
+    /* timer ring */
+    .timer-ring { position: relative; width: 70px; height: 70px; flex-shrink: 0; }
+    .timer-ring svg { transform: rotate(-90deg); }
+    .timer-ring .ring-bg { fill: none; stroke: var(--surface2); stroke-width: 6; }
+    .timer-ring .ring-fill { fill: none; stroke: var(--primary-light); stroke-width: 6; stroke-linecap: round; transition: stroke-dashoffset .9s linear; }
+    .timer-ring .timer-text {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%,-50%);
+      font-size: 1.1rem;
+      font-weight: 800;
+    }
+
+    /* question card */
+    .q-card {
+      background: var(--surface);
+      border-radius: 16px;
+      padding: 30px 28px;
+      margin-bottom: 16px;
+      box-shadow: 0 4px 20px rgba(0,0,0,.3);
+    }
+    .q-meta { font-size: .82rem; color: var(--text-muted); margin-bottom: 10px; }
+    .q-text { font-size: 1.25rem; font-weight: 700; line-height: 1.5; }
+
+    /* options */
+    .options { display: flex; flex-direction: column; gap: 12px; }
+    .option {
+      background: var(--surface2);
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 18px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      font-size: 1rem;
+      transition: border-color .15s, background .15s;
+    }
+    .option:hover:not(.disabled) { border-color: var(--primary-light); background: rgba(79,70,229,.15); }
+    .option.selected { border-color: var(--primary); background: rgba(79,70,229,.25); }
+    .option.correct  { border-color: var(--success); background: rgba(16,185,129,.2); }
+    .option.wrong    { border-color: var(--danger);  background: rgba(239,68,68,.2); }
+    .option.disabled { cursor: default; }
+    .option-key {
+      width: 32px; height: 32px;
+      border-radius: 8px;
+      background: var(--surface);
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: .9rem;
+      flex-shrink: 0;
+    }
+    .feedback-bar {
+      border-radius: 12px;
+      padding: 14px 18px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 16px;
+      font-size: 1rem;
+    }
+    .feedback-bar.correct { background: rgba(16,185,129,.15); border: 1px solid var(--success); color: var(--success); }
+    .feedback-bar.wrong   { background: rgba(239,68,68,.15);  border: 1px solid var(--danger);  color: var(--danger); }
+    .next-btn-wrap { text-align: right; margin-top: 16px; }
+
+    /* ── Result screen ── */
+    #resultScreen {
+      align-items: center;
+      justify-content: center;
+      padding: 40px 16px;
+    }
+    .result-card {
+      background: var(--surface);
+      border-radius: 20px;
+      padding: 48px 40px;
+      max-width: 480px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 8px 40px rgba(0,0,0,.4);
+    }
+    .result-emoji { font-size: 4rem; margin-bottom: 12px; }
+    .result-card h2 { font-size: 1.8rem; margin-bottom: 8px; }
+    .result-score { font-size: 4rem; font-weight: 900; color: var(--primary-light); margin: 16px 0; }
+    .result-detail { display: flex; justify-content: center; gap: 32px; margin-bottom: 28px; }
+    .result-detail .item .num { font-size: 1.5rem; font-weight: 800; }
+    .result-detail .item .lbl { font-size: .8rem; color: var(--text-muted); }
+    .result-actions { display: flex; gap: 12px; justify-content: center; }
+  </style>
+</head>
+<body>
+
+<!-- Top bar -->
+<div class="topbar">
+  <a href="../../index.html">← 返回游戏库</a>
+  <div class="topbar-title">🧠 答题竞赛</div>
+  <div class="topbar-right" id="topbarRight"></div>
+</div>
+
+<!-- Setup Screen -->
+<div class="screen active" id="setupScreen">
+  <div class="setup-card">
+    <h2>🧠 答题竞赛</h2>
+    <p>单选题限时挑战，支持导入 Excel 题库自定义题目</p>
+
+    <div class="field">
+      <label>每题答题时间（秒）</label>
+      <input type="number" id="timePerQ" value="20" min="5" max="120" />
+    </div>
+
+    <div class="field">
+      <label>导入题库（可选，留空使用内置示例题）</label>
+      <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+        <div class="icon">📄</div>
+        <div style="font-weight:600;margin-top:6px">点击选择 Excel 文件</div>
+        <p>支持 .xlsx / .xls 格式<br>表头：题目、选项A、选项B、选项C、选项D、正确答案</p>
+      </div>
+      <input type="file" id="fileInput" accept=".xlsx,.xls" onchange="handleFile(event)" />
+      <div id="loadedInfo" style="display:none">
+        <span class="question-count" id="qCount"></span>
+      </div>
+    </div>
+
+    <button class="btn btn-primary" style="width:100%;padding:14px;font-size:1rem" onclick="startGame()">开始游戏 🚀</button>
+  </div>
+</div>
+
+<!-- Game Screen -->
+<div class="screen" id="gameScreen">
+  <div class="game-wrapper">
+    <div class="stats-bar">
+      <div class="stat-box">
+        <div class="val" id="scoreVal">0</div>
+        <div class="lbl">得分</div>
+      </div>
+      <div class="stat-box">
+        <div class="val" id="correctVal">0</div>
+        <div class="lbl">答对</div>
+      </div>
+      <div class="progress-wrap">
+        <div class="progress-label" id="progressLabel">第 1 题 / 共 10 题</div>
+        <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+      </div>
+      <div class="timer-ring" id="timerRing">
+        <svg width="70" height="70" viewBox="0 0 70 70">
+          <circle class="ring-bg" cx="35" cy="35" r="30" />
+          <circle class="ring-fill" id="ringFill" cx="35" cy="35" r="30"
+            stroke-dasharray="188.5" stroke-dashoffset="0" />
+        </svg>
+        <div class="timer-text" id="timerText">20</div>
+      </div>
+    </div>
+
+    <div class="q-card" id="qCard">
+      <div class="q-meta" id="qMeta"></div>
+      <div class="q-text" id="qText"></div>
+    </div>
+
+    <div class="options" id="optionsWrap"></div>
+    <div id="feedbackBar"></div>
+    <div class="next-btn-wrap" id="nextBtnWrap" style="display:none">
+      <button class="btn btn-primary" onclick="nextQuestion()">下一题 →</button>
+    </div>
+  </div>
+</div>
+
+<!-- Result Screen -->
+<div class="screen" id="resultScreen">
+  <div class="result-card">
+    <div class="result-emoji" id="resultEmoji">🏆</div>
+    <h2 id="resultTitle">游戏结束！</h2>
+    <div class="result-score" id="resultScore">0</div>
+    <div style="color:var(--text-muted);margin-bottom:16px">综合得分</div>
+    <div class="result-detail">
+      <div class="item"><div class="num" id="resCorrect">0</div><div class="lbl">答对</div></div>
+      <div class="item"><div class="num" id="resWrong">0</div><div class="lbl">答错</div></div>
+      <div class="item"><div class="num" id="resTotal">0</div><div class="lbl">总题数</div></div>
+    </div>
+    <div class="result-actions">
+      <button class="btn btn-outline" onclick="goSetup()">重新设置</button>
+      <button class="btn btn-primary" onclick="restartGame()">再来一次 🔄</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── Built-in sample questions ───
+const SAMPLE_QUESTIONS = [
+  { q: "地球上面积最大的大洋是？", options: ["大西洋","印度洋","太平洋","北冰洋"], ans: 2 },
+  { q: "下列哪个元素的化学符号是 Fe？", options: ["铜","铁","金","银"], ans: 1 },
+  { q: "勾股定理中，直角三角形三边关系为？", options: ["a+b=c","a²+b²=c²","a×b=c","a²-b²=c²"], ans: 1 },
+  { q: "《红楼梦》的作者是？", options: ["吴承恩","罗贯中","施耐庵","曹雪芹"], ans: 3 },
+  { q: "光在真空中的速度约为每秒多少千米？", options: ["30万","3万","300万","3000"], ans: 0 },
+  { q: "人体中最长的骨骼是？", options: ["脊椎骨","肱骨","股骨","胫骨"], ans: 2 },
+  { q: "世界上海拔最高的山峰是？", options: ["K2","珠穆朗玛峰","乔戈里峰","洛子峰"], ans: 1 },
+  { q: "下列哪项不是可再生能源？", options: ["太阳能","风能","石油","潮汐能"], ans: 2 },
+  { q: "中国的首都是哪座城市？", options: ["上海","北京","广州","武汉"], ans: 1 },
+  { q: "1千克等于多少克？", options: ["10","100","1000","10000"], ans: 2 },
+];
+
+let questions = [];
+let current   = 0;
+let score     = 0;
+let correct   = 0;
+let wrong     = 0;
+let answered  = false;
+let timer     = null;
+let timeLeft  = 20;
+let timePer   = 20;
+const CIRCUMFERENCE = 2 * Math.PI * 30; // ≈ 188.5
+
+// ─── File import ───
+function handleFile(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    const wb   = XLSX.read(ev.target.result, { type: 'array' });
+    const ws   = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+    const loaded = [];
+    rows.forEach(r => {
+      const q    = r['题目']   || r['question'] || '';
+      const a    = r['选项A']  || r['A'] || '';
+      const b    = r['选项B']  || r['B'] || '';
+      const c    = r['选项C']  || r['C'] || '';
+      const d    = r['选项D']  || r['D'] || '';
+      const ans  = String(r['正确答案'] || r['answer'] || 'A').toUpperCase().trim();
+      const ansIdx = { A:0, B:1, C:2, D:3 }[ans] ?? 0;
+      if (q) loaded.push({ q, options: [a,b,c,d].filter(Boolean), ans: ansIdx });
+    });
+    if (loaded.length === 0) { alert('未读取到题目，请检查表头是否正确。'); return; }
+    questions = loaded;
+    document.getElementById('qCount').textContent = `已加载 ${loaded.length} 道题目 ✔`;
+    document.getElementById('loadedInfo').style.display = '';
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ─── Setup ───
+function startGame() {
+  timePer = parseInt(document.getElementById('timePerQ').value) || 20;
+  if (questions.length === 0) questions = shuffle([...SAMPLE_QUESTIONS]);
+  else questions = shuffle([...questions]);
+  current = score = correct = wrong = 0;
+  showScreen('gameScreen');
+  updateTopbar();
+  showQuestion();
+}
+
+function goSetup() {
+  clearInterval(timer);
+  questions = [];
+  document.getElementById('qCount').textContent = '';
+  document.getElementById('loadedInfo').style.display = 'none';
+  document.getElementById('fileInput').value = '';
+  showScreen('setupScreen');
+}
+
+function restartGame() {
+  current = score = correct = wrong = 0;
+  questions = shuffle([...questions]);
+  showScreen('gameScreen');
+  showQuestion();
+}
+
+// ─── Game logic ───
+function showQuestion() {
+  answered = false;
+  const q = questions[current];
+  const total = questions.length;
+
+  document.getElementById('qMeta').textContent = `第 ${current+1} 题 / 共 ${total} 题`;
+  document.getElementById('qText').textContent = q.q;
+  document.getElementById('progressLabel').textContent = `第 ${current+1} 题 / 共 ${total} 题`;
+  document.getElementById('progressFill').style.width = `${(current/total)*100}%`;
+  document.getElementById('scoreVal').textContent = score;
+  document.getElementById('correctVal').textContent = correct;
+  document.getElementById('feedbackBar').innerHTML = '';
+  document.getElementById('nextBtnWrap').style.display = 'none';
+
+  const keys = ['A','B','C','D'];
+  const wrap = document.getElementById('optionsWrap');
+  wrap.innerHTML = '';
+  q.options.forEach((opt, i) => {
+    const btn = document.createElement('div');
+    btn.className = 'option';
+    btn.innerHTML = `<div class="option-key">${keys[i]}</div><div>${opt}</div>`;
+    btn.onclick = () => selectOption(i, btn);
+    wrap.appendChild(btn);
+  });
+
+  startTimer();
+}
+
+function startTimer() {
+  clearInterval(timer);
+  timeLeft = timePer;
+  updateTimerUI();
+  timer = setInterval(() => {
+    timeLeft--;
+    updateTimerUI();
+    if (timeLeft <= 0) {
+      clearInterval(timer);
+      if (!answered) autoFail();
+    }
+  }, 1000);
+}
+
+function updateTimerUI() {
+  document.getElementById('timerText').textContent = timeLeft;
+  const pct = timeLeft / timePer;
+  const offset = CIRCUMFERENCE * (1 - pct);
+  document.getElementById('ringFill').style.strokeDashoffset = offset;
+  const ring = document.getElementById('ringFill');
+  ring.style.stroke = pct > 0.5 ? 'var(--primary-light)' : pct > 0.25 ? 'var(--warning)' : 'var(--danger)';
+}
+
+function selectOption(idx, el) {
+  if (answered) return;
+  answered = true;
+  clearInterval(timer);
+  const q = questions[current];
+  const opts = document.querySelectorAll('.option');
+  opts.forEach(o => o.classList.add('disabled'));
+  if (idx === q.ans) {
+    el.classList.add('correct');
+    const pts = Math.max(10, Math.round(10 + timeLeft * 3));
+    score += pts;
+    correct++;
+    showFeedback(true, `答对了！+${pts} 分`);
+  } else {
+    el.classList.add('wrong');
+    opts[q.ans].classList.add('correct');
+    wrong++;
+    showFeedback(false, `答错了！正确答案是 ${'ABCD'[q.ans]}`);
+  }
+  document.getElementById('scoreVal').textContent = score;
+  document.getElementById('correctVal').textContent = correct;
+  document.getElementById('nextBtnWrap').style.display = '';
+}
+
+function autoFail() {
+  answered = true;
+  const q = questions[current];
+  const opts = document.querySelectorAll('.option');
+  opts.forEach(o => o.classList.add('disabled'));
+  opts[q.ans].classList.add('correct');
+  wrong++;
+  showFeedback(false, `时间到！正确答案是 ${'ABCD'[q.ans]}`);
+  document.getElementById('nextBtnWrap').style.display = '';
+}
+
+function showFeedback(isCorrect, msg) {
+  const bar = document.getElementById('feedbackBar');
+  bar.innerHTML = `<div class="feedback-bar ${isCorrect?'correct':'wrong'}">${isCorrect?'✅':'❌'} ${msg}</div>`;
+}
+
+function nextQuestion() {
+  current++;
+  if (current >= questions.length) { endGame(); return; }
+  showQuestion();
+}
+
+function endGame() {
+  clearInterval(timer);
+  showScreen('resultScreen');
+  const pct = Math.round((correct / questions.length) * 100);
+  document.getElementById('resultScore').textContent = score;
+  document.getElementById('resCorrect').textContent = correct;
+  document.getElementById('resWrong').textContent = wrong;
+  document.getElementById('resTotal').textContent = questions.length;
+  let emoji = '🏆', title = '太棒了！';
+  if (pct >= 90) { emoji = '🥇'; title = '完美！'; }
+  else if (pct >= 70) { emoji = '🎉'; title = '答得不错！'; }
+  else if (pct >= 50) { emoji = '💪'; title = '继续加油！'; }
+  else { emoji = '📖'; title = '多多复习！'; }
+  document.getElementById('resultEmoji').textContent = emoji;
+  document.getElementById('resultTitle').textContent = title;
+}
+
+// ─── Utils ───
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function updateTopbar() {
+  document.getElementById('topbarRight').innerHTML =
+    `<button class="btn btn-outline btn-sm" onclick="goSetup()">← 重新设置</button>`;
+}
+
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+</script>
+</body>
+</html>
