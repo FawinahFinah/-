@@ -264,14 +264,14 @@
     </div>
 
     <div class="presets" id="presetBtns">
-      <button class="preset-btn" onclick="setPreset(60)">1分</button>
-      <button class="preset-btn" onclick="setPreset(120)">2分</button>
-      <button class="preset-btn" onclick="setPreset(180)">3分</button>
-      <button class="preset-btn active" onclick="setPreset(300)">5分</button>
-      <button class="preset-btn" onclick="setPreset(600)">10分</button>
-      <button class="preset-btn" onclick="setPreset(900)">15分</button>
-      <button class="preset-btn" onclick="setPreset(1800)">30分</button>
-      <button class="preset-btn" onclick="setPreset(2700)">45分</button>
+      <button class="preset-btn" onclick="setPreset(60,this)">1分</button>
+      <button class="preset-btn" onclick="setPreset(120,this)">2分</button>
+      <button class="preset-btn" onclick="setPreset(180,this)">3分</button>
+      <button class="preset-btn active" onclick="setPreset(300,this)">5分</button>
+      <button class="preset-btn" onclick="setPreset(600,this)">10分</button>
+      <button class="preset-btn" onclick="setPreset(900,this)">15分</button>
+      <button class="preset-btn" onclick="setPreset(1800,this)">30分</button>
+      <button class="preset-btn" onclick="setPreset(2700,this)">45分</button>
     </div>
   </div>
 
@@ -468,9 +468,9 @@ function tick() {
 }
 
 // ── Presets ──
-function setPreset(secs) {
+function setPreset(secs, btn) {
   document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
-  event.target.classList.add('active');
+  btn.classList.add('active');
   totalSecs = secs;
   remaining = secs;
   const h = Math.floor(secs/3600);

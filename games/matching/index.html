@@ -281,9 +281,9 @@ function startGame() {
   pairs = [];
   rows.forEach(r => {
     const inputs = r.querySelectorAll('input');
-    const l = inputs[0].value.trim();
-    const ri = inputs[1].value.trim();
-    if (l && ri) pairs.push([l, ri]);
+    const leftText = inputs[0].value.trim();
+    const rightText = inputs[1].value.trim();
+    if (leftText && rightText) pairs.push([leftText, rightText]);
   });
   if (pairs.length < 2) { alert('请至少输入 2 对配对！'); return; }
 

@@ -422,7 +422,13 @@ function showQuestion() {
   q.options.forEach((opt, i) => {
     const btn = document.createElement('div');
     btn.className = 'option';
-    btn.innerHTML = `<div class="option-key">${keys[i]}</div><div>${opt}</div>`;
+    const keyEl = document.createElement('div');
+    keyEl.className = 'option-key';
+    keyEl.textContent = keys[i];
+    const textEl = document.createElement('div');
+    textEl.textContent = opt;
+    btn.appendChild(keyEl);
+    btn.appendChild(textEl);
     btn.onclick = () => selectOption(i, btn);
     wrap.appendChild(btn);
   });

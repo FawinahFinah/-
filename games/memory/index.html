@@ -271,8 +271,17 @@ function addCardRow(val='') {
   const list = document.getElementById('cardInputList');
   const row  = document.createElement('div');
   row.className = 'card-input-row';
-  row.innerHTML = `<input type="text" placeholder="卡片文字或 emoji" value="${val}" maxlength="10" />
-    <button class="del-btn" onclick="this.parentElement.remove()">✕</button>`;
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.placeholder = '卡片文字或 emoji';
+  input.value = val;
+  input.maxLength = 10;
+  const delBtn = document.createElement('button');
+  delBtn.className = 'del-btn';
+  delBtn.textContent = '✕';
+  delBtn.onclick = () => row.remove();
+  row.appendChild(input);
+  row.appendChild(delBtn);
   list.appendChild(row);
 }
 function clearCardList() { document.getElementById('cardInputList').innerHTML = ''; }
