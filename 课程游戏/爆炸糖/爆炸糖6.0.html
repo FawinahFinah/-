@@ -1,0 +1,1908 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文言实词消除 - 像素爆炸版</title>
+    
+    <!-- 多 CDN 自动回退加载机制，确保中国大陆所有网络环境均可正常下载组件 -->
+    <script>
+        (function() {
+            // 容灾加载器：按数组顺序尝试加载，失败则自动请求下一个节点
+            function loadWithFallback(urls) {
+                var index = 0;
+                function loadNext() {
+                    if (index >= urls.length) {
+                        console.error('所有 CDN 节点均加载失败，请检查网络连接！');
+                        return;
+                    }
+                    var script = document.createElement('script');
+                    script.src = urls[index++];
+                    script.onerror = loadNext;
+                    document.head.appendChild(script);
+                }
+                loadNext();
+            }
+            
+            // SheetJS (Excel解析导出) 国内加速多节点容灾
+            loadWithFallback([
+                'https://cdn.staticfile.net/xlsx/0.18.5/xlsx.full.min.js',
+                'https://cdn.bootcdn.net/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
+                'https://npm.elemecdn.com/xlsx@0.18.5/dist/xlsx.full.min.js',
+                'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'
+            ]);
+
+            // html2pdf (PDF报告生成) 国内加速多节点容灾
+            loadWithFallback([
+                'https://cdn.staticfile.net/html2pdf.js/0.10.1/html2pdf.bundle.min.js',
+                'https://cdn.bootcdn.net/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js',
+                'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js'
+            ]);
+        })();
+    </script>
+
+    <style>
+        /* 基础重置与MC像素风 */
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Courier New', Courier, monospace, 'Microsoft YaHei'; cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" style="font-size: 24px"><text y="24">⛏️</text></svg>') 0 0, auto !important; }
+        body { margin: 0; overflow: hidden; background-color: #4A90E2; background-image: radial-gradient(circle at 50% 50%, #5b9bd5 0%, #2f6b9c 100%), repeating-linear-gradient(45deg, transparent, transparent 40px, rgba(255,255,255,0.03) 40px, rgba(255,255,255,0.03) 42px), repeating-linear-gradient(-45deg, transparent, transparent 40px, rgba(255,255,255,0.03) 40px, rgba(255,255,255,0.03) 42px); }
+
+        #game-container { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; }
+        #island-base { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 94vw; height: 96vh; background-color: #6a8c54; clip-path: polygon( 2% 2%, 4% 2%, 4% 0%, 12% 0%, 12% 1%, 20% 1%, 20% 0%, 80% 0%, 80% 1%, 88% 1%, 88% 0%, 96% 0%, 96% 2%, 98% 2%, 98% 5%, 100% 5%, 100% 90%, 98% 90%, 98% 95%, 95% 95%, 95% 98%, 88% 98%, 88% 100%, 15% 100%, 15% 98%, 6% 98%, 6% 96%, 2% 96%, 2% 90%, 0% 90%, 0% 10%, 2% 10% ); filter: drop-shadow(0 20px 30px rgba(0,0,0,0.5)); background-image: linear-gradient(45deg, rgba(0,0,0,0.05) 25%, transparent 25%, transparent 75%, rgba(0,0,0,0.05) 75%, rgba(0,0,0,0.05)), linear-gradient(-45deg, rgba(0,0,0,0.05) 25%, transparent 25%, transparent 75%, rgba(0,0,0,0.05) 75%, rgba(0,0,0,0.05)); background-size: 32px 32px; z-index: 0; }
+
+        #bg-entities { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; }
+        .mc-entity { position: absolute; font-size: 36px; line-height: 1; filter: drop-shadow(4px 4px 0px rgba(0,0,0,0.4)); pointer-events: auto; user-select: none; transition: transform 0.1s; }
+        .mc-entity:hover { filter: brightness(1.2) drop-shadow(4px 4px 0px rgba(0,0,0,0.5)); }
+
+        #static-scenery { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
+        .scenery-item { position: absolute; font-size: 45px; line-height: 1; filter: drop-shadow(4px 4px 0px rgba(0,0,0,0.5)); opacity: 0.95; }
+
+        .mc-btn { background: #8b8b8b; color: #fff; border: 4px solid; border-color: #ffffff #555555 #555555 #ffffff; border-radius: 12px; font-weight: bold; text-transform: uppercase; text-shadow: 2px 2px 0 #333; transition: filter 0.1s, transform 0.1s; cursor: pointer; }
+        .mc-btn:active { border-color: #555555 #ffffff #ffffff #555555; filter: brightness(0.8); transform: translateY(2px); }
+
+        #toggle-sidebar { position: fixed; left: 0; top: 20px; z-index: 2001; padding: 10px 15px; font-size: 16px; border-radius: 0 16px 16px 0; transition: transform 0.3s cubic-bezier(0, 0, 0.2, 1); }
+        #toggle-sidebar.open { transform: translateX(350px); }
+
+        #sidebar { position: fixed; left: 0; top: 0; width: 350px; height: 100vh; background: #c6c6c6; border-right: 6px solid #555; border-radius: 0 20px 20px 0; transform: translateX(-100%); transition: 0.3s cubic-bezier(0, 0, 0.2, 1); z-index: 2000; padding: 60px 15px 15px; display: flex; flex-direction: column; overflow-y: auto; box-shadow: 10px 0 20px rgba(0,0,0,0.5); }
+        #sidebar.open { transform: translateX(0); }
+
+        /* 滚动条美化 */
+        ::-webkit-scrollbar { width: 10px; height: 10px; }
+        ::-webkit-scrollbar-track { background: #a0a0a0; border-radius: 5px; border: 2px solid #555; }
+        ::-webkit-scrollbar-thumb { background: #666; border-radius: 5px; border: 2px solid #c6c6c6; }
+        ::-webkit-scrollbar-thumb:hover { background: #444; }
+
+        .input-group { margin-bottom: 12px; } .input-group label { display: block; margin-bottom: 5px; font-weight: bold; color: #333;}
+        .input-group input, .input-group textarea { width: 100%; padding: 10px; background: #222; color: #55ff55; border: 4px solid; border-color: #555 #fff #fff #555; border-radius: 10px; font-size: 13px; outline: none; resize: vertical; }
+        .input-group input:focus, .input-group textarea:focus { border-color: #fff #555 #555 #fff; } .input-group textarea { height: 80px; }
+
+        .btn-group { display: flex; gap: 8px; margin-bottom: 15px; flex-wrap: wrap; }
+        .btn-group button { flex: 1; padding: 10px; min-width: 45%; font-size: 13px; }
+        #btn-run { background: #3c8527; } #btn-save { background: #8b5a2b; }
+        
+        .excel-panel { background: #e0e0e0; border: 2px dashed #888; border-radius: 10px; padding: 10px; margin-bottom: 15px; }
+        .excel-panel label { color: #005500; font-size: 14px; margin-bottom: 8px; display:block; font-weight: bold; }
+
+        /* 录入区折叠样式 */
+        .collapsible-header { background: #555; color: #fff; padding: 10px; border-radius: 8px; cursor: pointer; display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 10px; font-size: 13px; }
+        .collapsible-header:hover { background: #666; }
+        .collapsible-content { display: block; overflow: hidden; }
+        .collapsible-content.collapsed { display: none; }
+
+        .history-list { flex: 1; overflow-y: auto; border-top: 4px solid #555; padding-top: 10px; margin-top: 5px; padding-right: 5px; }
+        .history-item { display: flex; justify-content: space-between; align-items: center; padding: 8px; background: #a0a0a0; border: 2px solid; border-color: #fff #555 #555 #fff; border-radius: 8px; margin-bottom: 8px; color: #111; font-weight: bold; cursor: pointer; font-size: 13px; transition: background 0.1s; }
+        .history-item:hover { background: #b0b0b0; } 
+        .del-btn { background: #aa0000; color: #fff; border: 2px solid #ff5555; border-radius: 6px; padding: 2px 8px; font-size: 14px; font-weight: bold; text-shadow: 1px 1px 0 #000; transition: transform 0.1s; display: inline-flex; align-items: center; justify-content: center; }
+        .del-btn:active { transform: scale(0.9); }
+
+        #game-board { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 85vw; height: 85vh; border-radius: 20px; z-index: 2; }
+
+        .card { position: absolute; display: flex; align-items: center; justify-content: center; text-align: center; font-weight: bold; user-select: none; transition: transform 0.15s, opacity 0.3s; padding: 10px; overflow: hidden; border: 4px solid; border-radius: 8px; border-color: rgba(255,255,255,0.4) rgba(0,0,0,0.5) rgba(0,0,0,0.6) rgba(255,255,255,0.3); box-shadow: 4px 6px 12px rgba(0,0,0,0.5); transform: translate(-50%, -50%); }
+        .card.selected { border-color: #55ffff; box-shadow: 0 0 25px #55ffff, inset 0 0 15px #55ffff; transform: translate(-50%, -50%) scale(1.1) translateY(-6px); z-index: 1000 !important; }
+        .card.matched { opacity: 0; pointer-events: none; transform: translate(-50%, -50%) scale(1.5) rotate(15deg); }
+
+        .card.question { background: #795548; box-shadow: inset 0 16px 0 #689F38, inset 0 20px 0 rgba(0,0,0,0.15), 4px 6px 12px rgba(0,0,0,0.5); color: #fff; text-shadow: 1px 1px 0 #333; }
+        .card.answer { background: #d1bfae; border-color: rgba(255,255,255,0.5) rgba(0,0,0,0.2) rgba(0,0,0,0.3) rgba(255,255,255,0.4); box-shadow: inset 2px 2px 0 rgba(255,255,255,0.4), inset -2px -2px 0 rgba(0,0,0,0.1), 4px 6px 12px rgba(0,0,0,0.5); color: #4a3b1c; text-shadow: 1px 1px 0 rgba(255,255,255,0.5); }
+        
+        :root { --hl-color: #ff3333; }
+        .card-text-wrapper { display: inline-block; width: 100%; max-height: 100%; word-break: break-word; white-space: normal; text-align: center; line-height: 1.3; font-size: 28px; }
+        .highlight { color: var(--hl-color); font-weight: 900; display: inline; } .card.answer .highlight { filter: brightness(0.7); }
+
+        #score-panel { position: fixed; right: 20px; top: 20px; width: 220px; background: #c6c6c6; border: 6px solid; border-color: #fff #555 #555 #fff; border-radius: 18px; padding: 15px; display: flex; flex-direction: column; gap: 15px; max-height: 90vh; box-shadow: 10px 10px 0 rgba(0,0,0,0.4); z-index: 1000; }
+        .timer-box { background: #111; color: #ff5555; padding: 10px; border: 4px solid #555; border-radius: 12px; text-align: center; }
+        .current-player-box { background: #111; color: #55ff55; padding: 10px; border: 4px solid; border-color: #555 #fff #fff #555; border-radius: 12px; text-align: center; }
+        .current-player-box h3 { margin-bottom: 5px; font-size: 13px; color: #fff;}
+        .current-score { font-size: 32px; font-weight: bold; color: #ffff55; text-shadow: 2px 2px 0 #aa5500; }
+        .matches-count { font-size: 12px; color: #aaa; margin-top: 5px;}
+        .points-rate { font-size: 13px; color: #55ffff; margin-top: 8px; font-weight: bold; text-shadow: 1px 1px 0 #000; }
+
+        #btn-stop-game { width: 100%; padding: 10px; background: #aa0000; color: #fff; font-size: 14px; }
+        .leaderboard-container { flex: 1; overflow-y: auto; border: 4px solid; border-color: #555 #fff #fff #555; border-radius: 10px; padding: 8px; background: #8b8b8b; padding-right: 5px; }
+        .leaderboard-title { text-align: center; margin-bottom: 8px; color: #ffff55; font-weight: bold; text-shadow: 2px 2px 0 #000; font-size: 14px;}
+        .rank-item { display: flex; justify-content: space-between; padding: 8px 6px; margin-bottom: 6px; background: #c6c6c6; font-size: 12px; border: 2px solid; border-color: #fff #555 #555 #fff; border-radius: 6px; color: #000; font-weight: bold; cursor: pointer; transition: transform 0.1s; }
+        .rank-item:hover { filter: brightness(1.1); transform: scale(1.02); }
+        .rank-item.rank-1 { background: #ffaa00; color: #fff; text-shadow: 1px 1px 0 #000; } .rank-item.rank-2 { background: #aaaaaa; color: #fff; text-shadow: 1px 1px 0 #000; } .rank-item.rank-3 { background: #d38b5d; color: #fff; text-shadow: 1px 1px 0 #000; }
+
+        #start-screen { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1000; display: flex; flex-direction: column; align-items: center; gap: 20px; }
+        .mc-rules { background: #c6c6c6; color: #333; border: 6px solid; border-color: #fff #555 #555 #fff; border-radius: 12px; padding: 20px; width: 450px; box-shadow: 10px 10px 0 rgba(0,0,0,0.4); text-align: left; }
+        .mc-rules h3 { text-align: center; margin-bottom: 15px; color: #111; font-size: 20px; }
+        .mc-rules p { font-size: 15px; font-weight: bold; line-height: 1.6; margin-bottom: 10px; }
+        .rule-hl-green { color: #005500; font-size: 1.3em; font-weight: bold; text-shadow: 1px 1px 0 #fff; padding: 0 2px; }
+        .rule-hl-danger { color: #ff5555; font-weight: bold; text-shadow: 1px 1px 0 #000; padding: 0 2px; }
+        #start-game-btn { position: relative; width: 280px; height: 80px; background: #4a823e; border: 6px solid; border-color: #6bcc5d #284c20 #284c20 #6bcc5d; border-radius: 20px; box-shadow: 10px 10px 0 rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; color: white; font-size: 26px; font-weight: bold; text-shadow: 2px 2px 0 #000; }
+        #start-game-btn:active { border-color: #284c20 #6bcc5d #6bcc5d #284c20; transform: scale(0.96); }
+
+        /* 全局自定义弹窗层 */
+        .mc-modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 99999; backdrop-filter: blur(3px); }
+        .mc-modal-box { background: #c6c6c6; padding: 30px; border: 8px solid; border-color: #fff #555 #555 #fff; border-radius: 20px; text-align: center; box-shadow: 0 20px 40px rgba(0,0,0,0.8); width: 90%; max-width: 450px; }
+        .mc-modal-box h2, .mc-modal-box h3 { color: #333; margin-bottom: 15px; text-transform: uppercase; }
+        .mc-modal-box p { font-size: 16px; color: #111; font-weight: bold; margin-bottom: 25px; line-height: 1.5; word-wrap: break-word; }
+        .mc-modal-actions { display: flex; gap: 15px; justify-content: center; }
+        .mc-modal-actions button { flex: 1; padding: 12px; font-size: 16px; }
+        .name-modal-box input[type="text"] { width: 100%; padding: 12px; background: #000; color: #fff; border: 4px solid #555; text-align: center; font-size: 18px; margin-bottom: 20px; border-radius: 12px; outline: none; font-weight: bold; }
+
+        /* 倒计时 CSS 按钮 */
+        .time-radio-input { display: none; }
+        .time-radio-label {
+            flex: 1; text-align: center; padding: 8px 0; background: #8b8b8b; color: #fff;
+            border: 3px solid; border-color: #ffffff #555555 #555555 #ffffff; border-radius: 8px;
+            cursor: pointer; font-size: 13px; font-weight: bold; text-shadow: 1px 1px 0 #333;
+            transition: all 0.1s; user-select: none; pointer-events: auto;
+        }
+        .time-radio-label:active { border-color: #555 #fff #fff #555; transform: translateY(2px); filter: brightness(0.8); }
+        .time-radio-input:checked + .time-radio-label { background: #3c8527; border-color: #6bcc5d #284c20 #284c20 #6bcc5d; color: #55ffff; }
+
+        /* 沉浸式新手引导 */
+        #tut-focus-box { position: fixed; display: none; pointer-events: none; z-index: 99990; box-shadow: 0 0 0 9999px rgba(0,0,0,0.75), 0 0 15px #55ff55 inset; border: 4px solid #55ff55; border-radius: 12px; transition: all 0.3s ease-in-out; }
+        #tut-click-catcher { position: fixed; inset: 0; z-index: 99989; display: none; cursor: pointer; }
+        #tut-tooltip { position: absolute; width: 320px; background: #c6c6c6; border: 6px solid; border-color: #fff #555 #555 #fff; border-radius: 12px; padding: 15px; color: #111; font-weight: bold; font-size: 15px; line-height: 1.6; box-shadow: 10px 10px 0 rgba(0,0,0,0.5); opacity: 0; transition: opacity 0.3s; pointer-events: auto !important; }
+        #tut-arrow { position: absolute; width: 0; height: 0; border: 12px solid transparent; }
+        
+        .tut-arrow-right { right: 100%; top: 50%; transform: translateY(-50%); border-right-color: #fff !important; }
+        .tut-arrow-left { left: 100%; top: 50%; transform: translateY(-50%); border-left-color: #555 !important; }
+        .tut-arrow-top { bottom: 100%; left: 50%; transform: translateX(-50%); border-bottom-color: #fff !important; }
+        .tut-arrow-bottom { top: 100%; left: 50%; transform: translateX(-50%); border-top-color: #555 !important; }
+
+        #darkness-overlay { position: fixed; inset: 0; background: #000; opacity: 0; pointer-events: none; z-index: 4000; transition: opacity 1.5s ease-in; }
+        .dark-active { opacity: 0.85 !important; }
+        #explosion-overlay { position: fixed; inset: 0; background: #fff; z-index: 9999; opacity: 0; pointer-events: none; }
+        
+        @keyframes tntFlash { 0% { filter: brightness(1) hue-rotate(0); transform: translate(-50%,-50%) scale(1.5) rotate(-5deg); box-shadow: 0 0 20px red; } 50% { filter: brightness(2) hue-rotate(-20deg); transform: translate(-50%,-50%) scale(3.5) rotate(5deg); background: #fff; box-shadow: 0 0 80px yellow; } 100% { filter: brightness(1) hue-rotate(0); transform: translate(-50%,-50%) scale(2) rotate(-5deg); box-shadow: 0 0 20px red; } }
+        .bomb-primed { animation: tntFlash 0.15s infinite !important; z-index: 9000 !important; border-color: red !important; }
+        @keyframes fullScreenExplode { 0% { opacity: 1; background: #fff; } 15% { opacity: 1; background: #ff0000; } 50% { opacity: 0.6; background: #550000; } 100% { opacity: 0; background: #000; } }
+        @keyframes violentShake { 0% { transform: translate(0, 0); } 10% { transform: translate(-40px, -40px); } 20% { transform: translate(40px, 40px); } 30% { transform: translate(-40px, 40px); } 40% { transform: translate(40px, -40px); } 50% { transform: translate(-20px, -20px); } 100% { transform: translate(0, 0); } }
+        .flash-active { animation: fullScreenExplode 1.5s forwards; }
+        .explode-active { animation: violentShake 0.6s cubic-bezier(.36,.07,.19,.97) forwards; }
+        @keyframes shake { 0%, 100% { transform: translate(-50%,-50%) translateX(0); } 25% { transform: translate(-50%,-50%) translateX(-10px) rotate(-5deg); } 75% { transform: translate(-50%,-50%) translateX(10px) rotate(5deg); } }
+        .anim-shake { animation: shake 0.3s ease-in-out; }
+
+        .cartoon-bomb-container { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 9998; pointer-events: none; display: none; }
+        .fuse-spark { position: absolute; top: -10px; right: -10px; font-size: 50px; animation: sparkSizzle 0.1s infinite alternate; }
+        .bomb-body { font-size: 150px; line-height: 1; filter: drop-shadow(5px 5px 0px rgba(0,0,0,0.8)); animation: bombPulse 0.3s infinite alternate; }
+        @keyframes sparkSizzle { 0% { transform: scale(0.8) rotate(0deg); opacity: 0.8; } 100% { transform: scale(1.3) rotate(45deg); opacity: 1; text-shadow: 0 0 20px yellow; } }
+        @keyframes bombPulse { 0% { transform: scale(1); } 100% { transform: scale(1.15); filter: brightness(1.3); } }
+        .cartoon-boom { font-size: 300px; line-height: 1; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0); z-index: 10000; pointer-events: none; display: none; }
+        @keyframes boomPop { 0% { transform: translate(-50%, -50%) scale(0); opacity: 1; } 40% { transform: translate(-50%, -50%) scale(1.5); opacity: 1; } 100% { transform: translate(-50%, -50%) scale(2.5); opacity: 0; } }
+
+        /* ==================== 分层题库系统样式 ==================== */
+        .col-config-modal { width: 94%; max-width: 860px; max-height: 88vh; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; }
+        .col-config-header { font-size: 18px; font-weight: bold; color: #333; text-align: center; }
+        .col-preview { background: #e8e8e8; border: 2px solid #999; border-radius: 8px; padding: 12px; margin-bottom: 15px; font-size: 13px; color: #111; max-height: 120px; overflow-y: auto; }
+        .col-preview-title { font-weight: bold; margin-bottom: 8px; color: #333; }
+        .col-preview-data { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+        .col-preview-item { background: #fff; padding: 6px; border-radius: 4px; border: 1px solid #ccc; font-size: 12px; word-break: break-word; }
+
+        .qb-role-columns { display: grid; grid-template-columns: 1.6fr 1fr; gap: 14px; align-items: stretch; }
+        .qb-role-side { display: flex; flex-direction: column; gap: 14px; }
+        .qb-role-section { border-radius: 16px; padding: 12px; border: 2px solid; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+        .qb-role-section-title { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; font-weight: bold; font-size: 14px; margin-bottom: 10px; color: #222; }
+        .qb-role-section-desc { font-size: 12px; opacity: 0.82; font-weight: normal; }
+        .qb-filter-section { background: linear-gradient(180deg, #fff2cc 0%, #ffe2a8 100%); border-color: #f39c12; }
+        .qb-question-section { background: linear-gradient(180deg, #dff0ff 0%, #b9dcff 100%); border-color: #2196f3; }
+        .qb-answer-section { background: linear-gradient(180deg, #f2e1ff 0%, #dfc0ff 100%); border-color: #8e44ad; }
+        .qb-role-dropzone { min-height: 72px; border-radius: 12px; border: 2px dashed rgba(0,0,0,0.14); padding: 4px; background: rgba(255,255,255,0.32); }
+        .qb-role-dropzone.single { min-height: 102px; display: flex; align-items: stretch; }
+        .qb-role-list { display: flex; flex-direction: column; gap: 10px; }
+        .qb-role-card { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 14px; border: 2px solid rgba(0,0,0,0.12); cursor: move; user-select: none; transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+        .qb-role-card:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0,0,0,0.14); }
+        .qb-role-card.dragging { opacity: 0.5; transform: scale(0.98); }
+        .qb-role-card--filter { background: #fff7e4; border-color: #f39c12; color: #694200; }
+        .qb-role-card--question { background: #edf7ff; border-color: #2196f3; color: #0d3b66; }
+        .qb-role-card--answer { background: #f7edff; border-color: #8e44ad; color: #4b2564; }
+        .qb-role-badge { font-weight: bold; padding: 2px 8px; border-radius: 999px; font-size: 12px; color: #fff; white-space: nowrap; }
+        .qb-role-card--filter .qb-role-badge { background: #f39c12; }
+        .qb-role-card--question .qb-role-badge { background: #2196f3; }
+        .qb-role-card--answer .qb-role-badge { background: #8e44ad; }
+        .qb-role-main { flex: 1; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+        .qb-role-title { font-weight: bold; font-size: 14px; word-break: break-word; }
+        .qb-role-subtitle { font-size: 12px; opacity: 0.82; word-break: break-word; }
+        .qb-role-handle { font-size: 18px; font-weight: bold; opacity: 0.7; }
+        .qb-config-summary { background: #e8f5e9; border: 2px solid #4caf50; border-radius: 8px; padding: 12px; margin-bottom: 15px; font-size: 13px; color: #1b5e20; font-weight: bold; word-break: break-word; }
+        .qb-config-name-input { width: 100%; padding: 8px; background: #fff; border: 2px solid #999; border-radius: 4px; font-size: 13px; margin-bottom: 15px; }
+        .col-config-actions { display: flex; gap: 10px; justify-content: flex-end; }
+        .col-config-actions button { flex: 1; max-width: 150px; padding: 10px; font-size: 13px; }
+        .qb-bank-panel { margin-top: 12px; padding-top: 12px; border-top: 4px double #555; }
+        .qb-bank-list { display: flex; flex-direction: column; gap: 12px; }
+        .qb-bank-group { background: #e8e8e8; border: 2px solid #999; border-radius: 10px; padding: 10px; }
+        .qb-bank-group-title { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-weight: bold; color: #111; margin-bottom: 8px; }
+        .qb-bank-group-subtitle { font-size: 12px; color: #555; font-weight: normal; }
+        .qb-bank-items { display: flex; flex-direction: column; gap: 8px; }
+        .qb-bank-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 10px; background: #dff1ff; border: 2px solid #4e7fb9; border-radius: 8px; color: #111; font-weight: bold; cursor: pointer; }
+        .qb-bank-item:hover { background: #cbe7ff; }
+        .qb-bank-item.default { background: #fff4db; border-color: #d08a00; }
+        .qb-bank-item-body { flex: 1; min-width: 0; pointer-events: none; }
+        .qb-bank-item-name { word-break: break-word; }
+        .qb-bank-meta { margin-top: 3px; font-size: 12px; color: #444; font-weight: normal; word-break: break-word; }
+        .qb-bank-remove { pointer-events: auto; background: #aa0000; color: #fff; border: 2px solid #ff5555; border-radius: 6px; padding: 2px 8px; font-size: 14px; font-weight: bold; }
+        .qb-bank-empty { padding: 10px; border-radius: 8px; background: #f8f8f8; border: 2px dashed #999; color: #555; font-size: 13px; }
+    </style>
+</head>
+<body>
+
+    <div id="sys-alert" class="mc-modal-overlay">
+        <div class="mc-modal-box">
+            <h3 style="color: #aa0000;">⚠️ 提示</h3>
+            <p id="sys-alert-msg"></p>
+            <button class="mc-btn" style="width: 100%; background: #3c8527; padding: 12px;" onclick="closeMcAlert()">确认 (OK)</button>
+        </div>
+    </div>
+    
+    <div id="sys-confirm" class="mc-modal-overlay">
+        <div class="mc-modal-box">
+            <h3 style="color: #ffaa00;">❓ 请确认</h3>
+            <p id="sys-confirm-msg"></p>
+            <div class="mc-modal-actions">
+                <button class="mc-btn" style="background: #aa0000;" onclick="handleConfirm(false)">取消</button>
+                <button class="mc-btn" style="background: #3c8527;" onclick="handleConfirm(true)">确认</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="export-pdf-modal" class="mc-modal-overlay">
+        <div class="mc-modal-box" style="max-width: 500px;">
+            <h3 style="color: #2f6b9c;">📊 生成 PDF 报告</h3>
+            <p style="text-align: left;">请选择您需要的报告类型：<br><br>
+               <strong>1. 包含答案页版</strong>：练习卷与答案均保留，适合自测复习。<br>
+               <strong>2. 纯净无答案版</strong>：仅留出错题填空，适合打印测试。
+            </p>
+            <div class="mc-modal-actions" style="flex-direction: column; gap: 10px;">
+                <button class="mc-btn" style="background: #4a823e;" onclick="executePDFExport(true)">📄 导出 (包含答案)</button>
+                <button class="mc-btn" style="background: #8b5a2b;" onclick="executePDFExport(false)">📝 导出 (纯净无答案)</button>
+                <button class="mc-btn" style="background: #555;" onclick="closePDFModal()">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 沉浸式新手引导遮罩及定位框 -->
+    <div id="tut-focus-box">
+        <div id="tut-tooltip">
+            <div id="tut-arrow"></div>
+            <div id="tut-text-content"></div>
+            <div style="margin-top: 20px; display: flex; justify-content: flex-end; gap: 10px; border-top: 2px dashed #999; padding-top: 15px;">
+                <button class="mc-btn" id="btn-tut-skip" style="padding: 6px 12px; font-size: 13px; background: #aa0000;">跳过指引</button>
+                <button class="mc-btn" id="btn-tut-next" style="padding: 6px 12px; font-size: 13px; background: #3c8527;">下一步</button>
+            </div>
+        </div>
+    </div>
+    <div id="tut-click-catcher"></div>
+
+    <div id="game-container">
+        <div id="island-base">
+            <div id="static-scenery">
+                <div class="scenery-item" style="top: 8%; left: 8%;">🌲</div><div class="scenery-item" style="top: 14%; left: 14%;">🛖</div>
+                <div class="scenery-item" style="top: 18%; left: 5%;">🌳</div><div class="scenery-item" style="top: 82%; left: 12%;">🏡</div>
+                <div class="scenery-item" style="top: 75%; left: 8%;">🌲</div><div class="scenery-item" style="top: 88%; left: 18%;">🌲</div>
+                <div class="scenery-item" style="top: 12%; left: 85%;">🏡</div><div class="scenery-item" style="top: 8%; left: 78%;">🌲</div>
+                <div class="scenery-item" style="top: 18%; left: 90%;">🌳</div><div class="scenery-item" style="top: 78%; left: 88%;">🛖</div>
+                <div class="scenery-item" style="top: 85%; left: 82%;">🌲</div><div class="scenery-item" style="top: 72%; left: 80%;">🌲</div>
+            </div>
+        </div>
+        <div id="bg-entities"></div>
+        <div id="game-board"></div>
+    </div>
+
+    <div id="darkness-overlay"></div>
+    <div id="explosion-overlay"></div>
+    <div id="cartoon-bomb-container" class="cartoon-bomb-container">
+        <div class="fuse-spark">✨</div>
+        <div class="bomb-body">💣</div>
+    </div>
+    <div id="cartoon-boom" class="cartoon-boom">💥</div>
+
+    <button id="toggle-sidebar" class="mc-btn">📦 题库箱</button>
+
+    <div id="sidebar">
+        <div class="excel-panel">
+            <label>📊 Excel 批量题库管家 (支持全字段)</label>
+            <div class="btn-group" style="margin-bottom: 0;">
+                <button id="btn-dl-template" class="mc-btn" style="background: #2b5a8b;">⬇️ 下载模板</button>
+                <button id="btn-import-excel" class="mc-btn" style="background: #8b2b5a;">⬆️ 导入Excel</button>
+                <button id="btn-export-excel" class="mc-btn" style="background: #2b8b5a;">📤 导出备份</button>
+            </div>
+            <input type="file" id="excel-file-input" accept=".xlsx, .xls" style="display: none;">
+        </div>
+
+        <!-- 录入区折叠区 -->
+        <div class="collapsible-section">
+            <div class="collapsible-header" id="toggle-input-section">
+                <span>📝 手动录入卷轴 (点击折叠/展开)</span>
+                <span id="toggle-icon">▼</span>
+            </div>
+            <div class="collapsible-content collapsed" id="input-section-content">
+                <div class="input-group">
+                    <label>📝 单次写入卷轴名称</label>
+                    <input type="text" id="db-name" placeholder="例如：七年级上册实词">
+                </div>
+                <div class="input-group">
+                    <label>🌿 文言词语 (每行一个，**高亮)</label>
+                    <textarea id="db-questions">**期**日中
+太丘**舍**去
+**去**后乃至
+下车**引**之
+元方**入门**</textarea>
+                </div>
+                <div class="input-group">
+                    <label>🪨 对应解释 (每行一个，对齐上方)</label>
+                    <textarea id="db-answers">约定
+舍弃
+离开
+拉
+进门</textarea>
+                </div>
+                <div class="btn-group">
+                    <button id="btn-save" class="mc-btn">💾 保存卷轴</button>
+                    <button id="btn-run" class="mc-btn">🚀 载入生成</button>
+                </div>
+            </div>
+        </div>
+
+        <h4 style="margin-bottom: 10px; color: #111;">📂 藏宝阁 (历史记录)</h4>
+        <div class="history-list" id="history-list"></div>
+
+        <div class="qb-bank-panel">
+            <h4 style="margin-bottom: 10px; color: #111;">📚 生成题库 (按筛选层级)</h4>
+            <div class="qb-bank-list" id="qb-config-list"></div>
+        </div>
+    </div>
+
+    <!-- 状态板与倒计时 -->
+    <div id="score-panel">
+        <div class="timer-box">
+            <div style="font-size: 12px; color: #aaa; margin-bottom: 5px;">⏳ 剩余时间</div>
+            <div id="timer-display" style="font-size: 28px; font-weight: bold; text-shadow: 2px 2px 0 #333;">--:--</div>
+        </div>
+        <div class="current-player-box">
+            <h3>🛡️ 当前玩家：<span id="player-name">未开始</span></h3>
+            <div class="current-score" id="player-score">0</div>
+            <div class="matches-count" id="matches-display">💎 挖掘组数: 0</div>
+            <div class="points-rate" id="points-rate-display">⚡ 消除收益: +2/组</div>
+        </div>
+        <button id="btn-stop-game" class="mc-btn" style="display: none;">🏃 见好就收 (撤退)</button>
+        <div class="leaderboard-container">
+            <div class="leaderboard-title">👑 英雄榜 (点击方块下发报告)</div>
+            <div id="leaderboard-list"></div>
+        </div>
+        <button onclick="clearLeaderboard()" class="mc-btn" style="padding: 8px; font-size: 12px; background: #555;">🧹 清空榜单</button>
+    </div>
+
+    <!-- 开始屏 -->
+    <div id="start-screen">
+        <button id="btn-replay-tutorial" class="mc-btn" style="position: absolute; top: 20px; right: 20px; padding: 10px 15px; font-size: 14px;">❓ 新手引导</button>
+        <div class="mc-rules">
+            <h3>📜 <span class="rule-hl-green">文言词语</span><br><span class="rule-hl-danger" style="font-size: 1.2em;">爆炸糖</span></h3>
+            <p>！ 挖掘并匹配对应的<span class="rule-hl-green">文言词语</span>与释义方块。</p>
+            <p>！ 连续挖掘同类方块不会损耗耐久与分数。</p>
+            <p>！ ⚠️ 矿区埋有高危<span class="rule-hl-danger">爆炸糖</span>，挖错直接引爆，物资清零！</p>
+        </div>
+        <div id="start-game-btn" class="mc-btn" title="点击开始">⚔️ 开始探险</div>
+    </div>
+
+    <div id="results-modal" class="mc-modal-overlay">
+        <div class="mc-modal-box">
+            <h2 id="result-title">🎉 挑战结束！</h2>
+            <p style="font-size: 20px; margin-bottom: 30px; font-weight: bold;">最终得分：<strong id="result-score" style="color: #aa0000; font-size: 40px;">0</strong> 分</p>
+            <button onclick="closeResults()" class="mc-btn" style="width: 100%; padding: 15px; font-size: 20px;">🏠 返回主城</button>
+        </div>
+    </div>
+
+    <div id="bonus-modal" class="mc-modal-overlay">
+        <div class="mc-modal-box">
+            <h2 style="color: #ffaa00; font-size: 28px; text-shadow: 2px 2px 0 #000;">🎁 发现隐藏矿脉！</h2>
+            <p style="font-size: 18px; margin-bottom: 10px; font-weight: bold; color: #333;">触发矿工福利！当前已获得积分：<br><span id="bonus-current-score" style="color: #aa0000; font-size: 32px; display: inline-block; margin-top: 10px;">0</span> 分</p>
+            <p style="color:#284c20; margin-bottom: 25px; font-weight:bold; font-size: 15px;">若继续游戏，接下来每消除一组积分翻倍！</p>
+            <button id="btn-return-game" class="mc-btn" style="width: 100%; padding: 15px; font-size: 20px; background: #3c8527; margin-bottom: 15px;">⛏️ 返回游戏 (积分x2)</button>
+            <button id="btn-continue-retreat" class="mc-btn" style="width: 100%; padding: 10px; font-size: 14px; background: #aa0000;">🏃 见好就收 (继续撤退)</button>
+        </div>
+    </div>
+
+    <!-- 填名及倒计时模式选择 -->
+    <div id="name-modal-overlay" class="mc-modal-overlay">
+        <div class="mc-modal-box name-modal-box">
+            <h3>🗡️ 欢迎来到词汇矿区</h3>
+            <p style="color:#555; margin-bottom: 15px; font-weight:bold;">勇敢的冒险者，刻下你的大名！</p>
+            <input type="text" id="player-name-input" placeholder="史蒂夫 (Steve)" maxlength="10">
+            
+            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                <div style="flex: 1; background: #ddd; padding: 10px; border-radius: 8px; border: 2px solid #aaa; text-align: left;">
+                    <label style="color:#333; font-weight:bold; font-size:13px; display:block; margin-bottom:5px;">🎨 高亮颜色：</label>
+                    <select id="hl-color-input" style="width:100%; padding:4px; background:#fff; color:#111; border:2px solid #555; border-radius:4px; font-weight:bold; font-size:14px; outline:none; cursor:pointer;">
+                        <option value="#ff3333">🔴 红色</option>
+                        <option value="#ffaa00">🟠 橙色</option>
+                        <option value="#ffff55">🟡 黄色</option>
+                        <option value="#55ff55">🟢 绿色</option>
+                        <option value="#55ffff">🔵 蓝色</option>
+                    </select>
+                </div>
+                <div style="flex: 1; background: #ddd; padding: 10px; border-radius: 8px; border: 2px solid #aaa; text-align: left;">
+                    <label style="color:#333; font-weight:bold; font-size:13px; display:block; margin-bottom:5px;">🗂️ 抽取组数：</label>
+                    <input type="number" id="pair-count-input" value="20" min="2" style="width:100%; padding:5px; background:#fff; color:#111; border:2px solid #555; border-radius:4px; font-weight:bold; font-size:14px; outline:none;">
+                </div>
+            </div>
+
+            <div style="text-align: left; margin-bottom: 20px; background: #ddd; padding: 12px; border-radius: 8px; border: 2px solid #aaa; position: relative; z-index: 10;">
+                <p style="color:#333; font-weight:bold; margin-bottom:10px; font-size:14px;">⏳ 挖掘倒计时：</p>
+                <div style="display:flex; justify-content:space-between; gap:8px; font-size:14px; color:#111; font-weight:bold;">
+                    <input type="radio" id="time-60" name="time-limit" value="60" class="time-radio-input">
+                    <label for="time-60" class="time-radio-label">1min</label>
+                    
+                    <input type="radio" id="time-180" name="time-limit" value="180" class="time-radio-input">
+                    <label for="time-180" class="time-radio-label">3min</label>
+                    
+                    <input type="radio" id="time-300" name="time-limit" value="300" class="time-radio-input">
+                    <label for="time-300" class="time-radio-label">5min</label>
+                    
+                    <input type="radio" id="time-0" name="time-limit" value="0" class="time-radio-input">
+                    <label for="time-0" class="time-radio-label">无限</label>
+                </div>
+            </div>
+
+            <button id="btn-confirm-name" class="mc-btn" style="width: 100%; padding: 15px; font-size: 20px; background: #3c8527; margin-bottom: 10px;">⛏️ 出发挖掘！</button>
+            <button id="btn-cancel-name" class="mc-btn" style="width: 100%; padding: 10px; font-size: 14px; background: #555;">取消</button>
+        </div>
+    </div>
+
+    <!-- 初始新手引导询问模态框 -->
+    <div id="tutorial-prompt-overlay" class="mc-modal-overlay">
+        <div class="mc-modal-box">
+            <h2>🗺️ 发现新矿工</h2>
+            <p style="margin-bottom:20px; font-weight:bold; color:#555; font-size:16px;">是否需要向导为你介绍矿区的各个功能？</p>
+            <button id="btn-start-tutorial" class="mc-btn" style="width:100%; padding:15px; background:#4a823e; margin-bottom:10px; font-size:18px;">🟢 接受引导</button>
+            <button id="btn-skip-tutorial" class="mc-btn" style="width:100%; padding:10px; background:#aa0000; font-size:14px;">🔴 我是老手 (跳过)</button>
+        </div>
+    </div>
+
+    <script>
+        const elements = {
+            sidebar: document.getElementById('sidebar'), toggleSidebar: document.getElementById('toggle-sidebar'),
+            gameBoard: document.getElementById('game-board'), startScreen: document.getElementById('start-screen'),
+            startBtn: document.getElementById('start-game-btn'), resultsModal: document.getElementById('results-modal'),
+            btnStopGame: document.getElementById('btn-stop-game'), dbName: document.getElementById('db-name'),
+            dbQuestions: document.getElementById('db-questions'), dbAnswers: document.getElementById('db-answers'),
+            btnSave: document.getElementById('btn-save'), btnRun: document.getElementById('btn-run'),
+            historyList: document.getElementById('history-list'), qbConfigList: document.getElementById('qb-config-list'), playerNameDisplay: document.getElementById('player-name'),
+            playerScoreDisplay: document.getElementById('player-score'), matchesDisplay: document.getElementById('matches-display'),
+            pointsRateDisplay: document.getElementById('points-rate-display'), leaderboardList: document.getElementById('leaderboard-list'),
+            resultTitle: document.getElementById('result-title'), resultScoreDisplay: document.getElementById('result-score'),
+            nameModalOverlay: document.getElementById('name-modal-overlay'), nameInput: document.getElementById('player-name-input'),
+            btnConfirmName: document.getElementById('btn-confirm-name'), btnCancelName: document.getElementById('btn-cancel-name'),
+            bonusModal: document.getElementById('bonus-modal'), bonusCurrentScore: document.getElementById('bonus-current-score'),
+            btnReturnGame: document.getElementById('btn-return-game'), btnContinueRetreat: document.getElementById('btn-continue-retreat'),
+            btnDlTemplate: document.getElementById('btn-dl-template'), btnImportExcel: document.getElementById('btn-import-excel'),
+            btnExportExcel: document.getElementById('btn-export-excel'), excelFileInput: document.getElementById('excel-file-input'),
+            timerDisplay: document.getElementById('timer-display'),
+            hlColorInput: document.getElementById('hl-color-input'), pairCountInput: document.getElementById('pair-count-input'),
+            toggleInputSection: document.getElementById('toggle-input-section'), inputSectionContent: document.getElementById('input-section-content'), toggleIcon: document.getElementById('toggle-icon')
+        };
+
+        // 录入区折叠交互
+        if (elements.toggleInputSection) {
+            elements.toggleInputSection.addEventListener('click', () => {
+                elements.inputSectionContent.classList.toggle('collapsed');
+                elements.toggleIcon.innerText = elements.inputSectionContent.classList.contains('collapsed') ? '▼' : '▲';
+                playClickSound();
+            });
+        }
+
+        // ==========================================
+        // 定制化弹窗系统
+        // ==========================================
+        let confirmCallback = null;
+        function mcAlert(msg) {
+            document.getElementById('sys-alert-msg').innerText = msg; document.getElementById('sys-alert').style.display = 'flex'; playClickSound();
+        }
+        function closeMcAlert() { document.getElementById('sys-alert').style.display = 'none'; playClickSound(); }
+        
+        function mcConfirm(msg, callback) {
+            document.getElementById('sys-confirm-msg').innerText = msg; confirmCallback = callback;
+            document.getElementById('sys-confirm').style.display = 'flex'; playClickSound();
+        }
+        function handleConfirm(result) {
+            document.getElementById('sys-confirm').style.display = 'none'; playClickSound();
+            if(confirmCallback) confirmCallback(result);
+        }
+
+        // ==========================================
+        // 全局变量与音频引擎
+        // ==========================================
+        let gameState = { 
+            isPlaying: false, playerName: '', score: 0, matchesCount: 0, totalPairs: 0, scoreMultiplier: 1, 
+            selectedCard: null, currentBankName: '', stats: [],
+            timeLeft: 0, timerInterval: null, initialTimeChoice: 0 
+        };
+        let pendingGameData = [];
+
+        function getSafeStorage(key, defaultObj) { try { const data = localStorage.getItem(key); return data ? JSON.parse(data) : defaultObj; } catch(e) { return defaultObj; } }
+        function setSafeStorage(key, obj) { try { localStorage.setItem(key, JSON.stringify(obj)); } catch(e) {} }
+
+        let audioCtx = null;
+        try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {}
+        function initAudio() { if (audioCtx && audioCtx.state === 'suspended') try { audioCtx.resume(); } catch(e) {} }
+        
+        function playSound(type) {
+            if (!audioCtx) return; initAudio(); const now = audioCtx.currentTime;
+            const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            
+            if(type === 'click') {
+                osc.type = 'triangle'; osc.frequency.setValueAtTime(150, now); osc.frequency.exponentialRampToValueAtTime(40, now + 0.08); 
+                gain.gain.setValueAtTime(0.4, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08); osc.start(now); osc.stop(now + 0.08);
+            } else if(type === 'correct') {
+                osc.type = 'sine'; osc.frequency.setValueAtTime(1200, now); osc.frequency.setValueAtTime(1600, now + 0.05); 
+                gain.gain.setValueAtTime(0, now); gain.gain.linearRampToValueAtTime(0.3, now + 0.02); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25); osc.start(now); osc.stop(now + 0.25);
+            } else if(type === 'wrong') {
+                const filter = audioCtx.createBiquadFilter(); osc.type = 'square'; osc.frequency.setValueAtTime(120, now); osc.frequency.exponentialRampToValueAtTime(50, now + 0.15); 
+                filter.type = 'lowpass'; filter.frequency.setValueAtTime(800, now); filter.frequency.exponentialRampToValueAtTime(200, now + 0.15);
+                osc.disconnect(); osc.connect(filter); filter.connect(gain); gain.gain.setValueAtTime(0.6, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15); osc.start(now); osc.stop(now + 0.15);
+            } else if(type === 'ding') {
+                osc.type = 'sine'; osc.frequency.setValueAtTime(880, now);
+                gain.gain.setValueAtTime(0, now); gain.gain.linearRampToValueAtTime(0.6, now + 0.05); gain.gain.exponentialRampToValueAtTime(0.01, now + 1.5);
+                osc.start(now); osc.stop(now + 1.5);
+            } else if(type === 'tick') {
+                osc.type = 'square'; osc.frequency.setValueAtTime(1000, now);
+                gain.gain.setValueAtTime(0, now); gain.gain.linearRampToValueAtTime(0.1, now + 0.01); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
+                osc.start(now); osc.stop(now + 0.05);
+            } else if(type === 'alarm') {
+                for(let i=0; i<4; i++) {
+                    const oscA = audioCtx.createOscillator(), gainA = audioCtx.createGain();
+                    oscA.connect(gainA); gainA.connect(audioCtx.destination);
+                    oscA.type = 'sawtooth'; oscA.frequency.value = 800;
+                    gainA.gain.setValueAtTime(0, now + i*0.25); gainA.gain.linearRampToValueAtTime(0.4, now + i*0.25 + 0.05); gainA.gain.exponentialRampToValueAtTime(0.01, now + i*0.25 + 0.2);
+                    oscA.start(now + i*0.25); oscA.stop(now + i*0.25 + 0.2);
+                }
+            } else if(type === 'move') {
+                const filter = audioCtx.createBiquadFilter();
+                osc.type = 'sine'; osc.frequency.setValueAtTime(400, now); osc.frequency.exponentialRampToValueAtTime(100, now + 0.3);
+                filter.type = 'lowpass'; filter.frequency.setValueAtTime(1200, now); filter.frequency.exponentialRampToValueAtTime(200, now + 0.3);
+                osc.disconnect(); osc.connect(filter); filter.connect(gain);
+                gain.gain.setValueAtTime(0.25, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                osc.start(now); osc.stop(now + 0.3);
+            }
+        }
+        function playClickSound() { playSound('click'); }
+        function playCorrectSound() { playSound('correct'); }
+        function playWrongSound() { playSound('wrong'); }
+        function playDingSound() { playSound('ding'); }
+        function playTickSound() { playSound('tick'); }
+        function playAlarmSound() { playSound('alarm'); }
+        function playMoveSound() { playSound('move'); }
+
+        function playCreeperHiss() {
+            if (!audioCtx) return; initAudio();
+            const bufferSize = audioCtx.sampleRate * 1.5, buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate), data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+            const noise = audioCtx.createBufferSource(), filter = audioCtx.createBiquadFilter(), gain = audioCtx.createGain();
+            noise.buffer = buffer; filter.type = 'highpass'; filter.frequency.value = 4000; 
+            gain.gain.setValueAtTime(0.01, audioCtx.currentTime); gain.gain.linearRampToValueAtTime(0.8, audioCtx.currentTime + 1.2); gain.gain.linearRampToValueAtTime(0.9, audioCtx.currentTime + 1.5); 
+            noise.connect(filter).connect(gain).connect(audioCtx.destination); noise.start();
+        }
+        function playExplosionSound() {
+            if (!audioCtx) return; initAudio(); const now = audioCtx.currentTime;
+            const bufferSize = audioCtx.sampleRate * 2.0, buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate), data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+            const noise = audioCtx.createBufferSource(), filter = audioCtx.createBiquadFilter(), noiseGain = audioCtx.createGain();
+            noise.buffer = buffer; filter.type = 'lowpass'; filter.frequency.setValueAtTime(1500, now); filter.frequency.exponentialRampToValueAtTime(100, now + 0.6); 
+            noiseGain.gain.setValueAtTime(1.5, now); noiseGain.gain.exponentialRampToValueAtTime(0.01, now + 1.5); noise.connect(filter).connect(noiseGain).connect(audioCtx.destination); noise.start(now);
+            const subOsc = audioCtx.createOscillator(), subGain = audioCtx.createGain(); subOsc.type = 'sine'; subOsc.frequency.setValueAtTime(80, now); subOsc.frequency.exponentialRampToValueAtTime(20, now + 1.0);
+            subGain.gain.setValueAtTime(1.0, now); subGain.gain.exponentialRampToValueAtTime(0.01, now + 1.5); subOsc.connect(subGain).connect(audioCtx.destination); subOsc.start(now); subOsc.stop(now + 1.5);
+        }
+
+        // ==========================================
+        // 沉浸式场景联动高亮新手引导
+        // ==========================================
+        const tutSteps = [
+            { sel: '.mc-rules', text: "【游戏规则】\n挖掘并匹配对应的文言词语与释义方块！\n⚠️注意：游戏里随时潜伏着爆炸糖，一旦挖错，分数瞬间清零！", pos: "top", action: () => { elements.startScreen.style.display = 'flex'; elements.sidebar.classList.remove('open'); elements.toggleSidebar.classList.remove('open'); elements.gameBoard.innerHTML = ''; elements.btnStopGame.style.display = 'none'; } },
+            { sel: '#sidebar', text: "【题库操作】\n这里是题库箱！你可以一键导入Excel模板题库，或者在下方手动录入题目和对应的解释并保存。", pos: "right", action: () => { elements.sidebar.classList.add('open'); elements.toggleSidebar.classList.add('open'); } },
+            { sel: '#start-game-btn', text: "【开始游戏】\n准备就绪后，点击这里立刻生成你的专属矿区，开启探险模式！", pos: "bottom", action: () => { elements.sidebar.classList.remove('open'); elements.toggleSidebar.classList.remove('open'); elements.startScreen.style.display = 'flex'; } },
+            { sel: '#game-board', text: "【匹配与连击】\n看到这些生成的方块了吗？找到成对的释义进行消除！连续答对收益翻倍，当心不要点错引发爆炸！", pos: "bottom", action: () => { elements.startScreen.style.display = 'none'; startMockGame(); } },
+            { sel: '#score-panel', text: "【撤退与导出报告】\n点击【见好就收】可安全撤退并保留分数。\n结束挑战后，点击排行榜上你的名字方块，就能一键导出专业的PDF错题分析报告了！", pos: "left", action: () => { } }
+        ];
+        let tutStepIdx = 0;
+
+        function startSpotlightTutorial() {
+            tutStepIdx = 0; document.getElementById('tut-focus-box').style.display = 'block'; document.getElementById('tut-click-catcher').style.display = 'block'; showTutStep();
+        }
+
+        function showTutStep() {
+            if(tutStepIdx >= tutSteps.length) { endSpotlightTutorial(); return; }
+            const step = tutSteps[tutStepIdx];
+            if(step.action) step.action();
+
+            setTimeout(() => {
+                const el = document.querySelector(step.sel);
+                if(!el) { tutStepIdx++; showTutStep(); return; }
+                const rect = el.getBoundingClientRect(), focusBox = document.getElementById('tut-focus-box'), tooltip = document.getElementById('tut-tooltip'), pad = 10;
+                focusBox.style.left = (rect.left - pad) + 'px'; focusBox.style.top = (rect.top - pad) + 'px'; focusBox.style.width = (rect.width + pad*2) + 'px'; focusBox.style.height = (rect.height + pad*2) + 'px';
+                document.getElementById('tut-text-content').innerText = step.text;
+
+                tooltip.style.opacity = '0';
+                setTimeout(() => {
+                    tooltip.style.opacity = '1'; tooltip.style.left = 'auto'; tooltip.style.right = 'auto'; tooltip.style.top = 'auto'; tooltip.style.bottom = 'auto'; tooltip.style.transform = 'none';
+                    const arrow = document.getElementById('tut-arrow'); arrow.className = '';
+                    if (step.pos === 'right') { tooltip.style.left = 'calc(100% + 20px)'; tooltip.style.top = '50%'; tooltip.style.transform = 'translateY(-50%)'; arrow.className = 'tut-arrow-right'; } 
+                    else if (step.pos === 'left') { tooltip.style.right = 'calc(100% + 20px)'; tooltip.style.top = '50%'; tooltip.style.transform = 'translateY(-50%)'; arrow.className = 'tut-arrow-left'; } 
+                    else if (step.pos === 'top') { tooltip.style.bottom = 'calc(100% + 20px)'; tooltip.style.left = '50%'; tooltip.style.transform = 'translateX(-50%)'; arrow.className = 'tut-arrow-top'; } 
+                    else if (step.pos === 'bottom') { tooltip.style.top = 'calc(100% + 20px)'; tooltip.style.left = '50%'; tooltip.style.transform = 'translateX(-50%)'; arrow.className = 'tut-arrow-bottom'; }
+                    document.getElementById('btn-tut-next').innerText = tutStepIdx === tutSteps.length - 1 ? "完成出发" : "下一步";
+                }, 300); 
+            }, 350); 
+        }
+
+        function startMockGame() {
+            gameState.isPlaying = true; gameState.playerName = "新手学徒"; gameState.score = 0; gameState.matchesCount = 0; gameState.scoreMultiplier = 1; gameState.currentBankName = "新手教程展示";
+            elements.playerNameDisplay.innerText = "新手学徒"; elements.playerScoreDisplay.innerText = "0"; elements.btnStopGame.style.display = 'block';
+            let mockData = [ { t: '实词', g: '七上', c: '《论语》', q: '**学**而时习之', a: '学习', mistakes: 0, matched: false }, { t: '通假字', g: '七上', c: '《论语》', q: '不亦**说**乎', a: '同“悦”', mistakes: 0, matched: false } ];
+            gameState.stats = mockData; gameState.totalPairs = 2; elements.gameBoard.innerHTML = ''; generateCards(mockData, 2);
+        }
+
+        function endSpotlightTutorial() {
+            document.getElementById('tut-focus-box').style.display = 'none'; document.getElementById('tut-click-catcher').style.display = 'none';
+            localStorage.setItem('mc_tutorial_spotlight_done', 'true');
+            gameState.isPlaying = false; elements.gameBoard.innerHTML = ''; elements.btnStopGame.style.display = 'none'; elements.startScreen.style.display = 'flex';
+            elements.sidebar.classList.remove('open'); elements.toggleSidebar.classList.remove('open'); elements.playerNameDisplay.innerText = "未开始";
+            elements.playerScoreDisplay.innerText = "0"; elements.pointsRateDisplay.innerText = "⚡ 消除收益: +2/组"; elements.matchesDisplay.innerText = "💎 挖掘组数: 0";
+        }
+
+        // 绑定交互按钮事件
+        document.getElementById('btn-tut-skip').addEventListener('click', (e) => { e.stopPropagation(); playClickSound(); endSpotlightTutorial(); });
+        document.getElementById('btn-tut-next').addEventListener('click', (e) => { e.stopPropagation(); playClickSound(); tutStepIdx++; showTutStep(); });
+        document.getElementById('tut-click-catcher').addEventListener('click', () => { playClickSound(); tutStepIdx++; showTutStep(); });
+        document.getElementById('btn-replay-tutorial').addEventListener('click', () => { playClickSound(); startSpotlightTutorial(); });
+
+        document.getElementById('btn-start-tutorial').addEventListener('click', () => {
+            playClickSound(); setSafeStorage('mc_yly_tutorial_done', true); document.getElementById('tutorial-prompt-overlay').style.display = 'none'; startSpotlightTutorial();
+        });
+        document.getElementById('btn-skip-tutorial').addEventListener('click', () => {
+            playClickSound(); setSafeStorage('mc_yly_tutorial_done', true); document.getElementById('tutorial-prompt-overlay').style.display = 'none';
+        });
+
+        window.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('.mc-btn').forEach(btn => { btn.addEventListener('mousedown', playClickSound); });
+            const savedTime = getSafeStorage('mc_yly_time', '180');
+            const timeRadio = document.querySelector(`input[name="time-limit"][value="${savedTime}"]`);
+            if (timeRadio) timeRadio.checked = true; else document.querySelector(`input[name="time-limit"][value="180"]`).checked = true;
+            
+            document.querySelectorAll('input[name="time-limit"]').forEach(radio => { radio.addEventListener('change', playClickSound); });
+
+            // 初次登入引导框触发
+            if(!getSafeStorage('mc_yly_tutorial_done', false)) {
+                document.getElementById('tutorial-prompt-overlay').style.display = 'flex';
+            }
+        });
+
+        // ==========================================
+        // 动物及其他杂项逻辑
+        // ==========================================
+        const animalsData = []; const animalIcons = ['🐖', '🐏', '🐄'];
+        function initAnimals() {
+            const container = document.getElementById('bg-entities'); container.innerHTML = ''; animalsData.length = 0;
+            for(let i=0; i<3; i++) {
+                let el = document.createElement('div'); el.className = 'mc-entity'; el.innerText = animalIcons[Math.floor(Math.random()*animalIcons.length)];
+                let x = Math.random() * window.innerWidth, y = Math.random() * window.innerHeight;
+                el.style.transform = `translate(${x}px, ${y}px)`; container.appendChild(el);
+                let animal = { el, x, y, targetX: x, targetY: y }; animalsData.push(animal);
+                el.addEventListener('click', (e) => { dodge(animal); e.stopPropagation(); }); el.addEventListener('mouseenter', () => dodge(animal));
+            }
+            setInterval(assignRandomTargets, 3000); requestAnimationFrame(animateAnimals);
+        }
+        function dodge(animal) { animal.targetX = animal.x + (Math.random() > 0.5 ? 200 : -200); animal.targetY = animal.y + (Math.random() > 0.5 ? 200 : -200); animal.targetX = Math.max(50, Math.min(window.innerWidth-100, animal.targetX)); animal.targetY = Math.max(50, Math.min(window.innerHeight-100, animal.targetY)); try { playClickSound(); } catch(e){} }
+        function assignRandomTargets() { animalsData.forEach(a => { if(Math.random() > 0.4) { a.targetX += (Math.random() - 0.5) * 400; a.targetY += (Math.random() - 0.5) * 400; a.targetX = Math.max(50, Math.min(window.innerWidth-100, a.targetX)); a.targetY = Math.max(50, Math.min(window.innerHeight-100, a.targetY)); } }); }
+        function animateAnimals() { animalsData.forEach(a => { a.x += (a.targetX - a.x) * 0.02; a.y += (a.targetY - a.y) * 0.02; let scaleX = (a.targetX - a.x) < 0 ? -1 : 1; a.el.style.transform = `translate(${a.x}px, ${a.y}px) scaleX(${scaleX})`; }); requestAnimationFrame(animateAnimals); }
+
+        initAnimals(); renderLeaderboard(); loadHistoryList(); loadQBConfigList();
+        elements.toggleSidebar.addEventListener('click', () => { elements.sidebar.classList.toggle('open'); elements.toggleSidebar.classList.toggle('open'); initAudio(); });
+
+        // ==========================================
+        // Excel 与 题目存储引擎
+        // ==========================================
+        elements.btnSave.addEventListener('click', () => {
+            const name = elements.dbName.value.trim() || '未命名卷轴_' + new Date().getTime();
+            const qLines = elements.dbQuestions.value.trim().split(/\r?\n/).filter(l => l.trim()!=='');
+            const aLines = elements.dbAnswers.value.trim().split(/\r?\n/).filter(l => l.trim()!=='');
+            if(qLines.length === 0 || qLines.length !== aLines.length) return mcAlert("题目和解释不能为空，且行数必须一致！");
+            let history = getSafeStorage('mc_yly_history', {}); let existingItems = Array.isArray(history[name]) ? history[name] : [];
+            let items = qLines.map((q, idx) => { let match = existingItems.find(ex => ex.q === q); return { t: match ? match.t : '未分类', g: match ? match.g : '未分类', c: match ? match.c : '未分类', q: q, a: aLines[idx] }; });
+            history[name] = items; setSafeStorage('mc_yly_history', history); loadHistoryList(); mcAlert("卷轴保存成功！");
+        });
+
+        function loadHistoryList() {
+            const history = getSafeStorage('mc_yly_history', {});
+            elements.historyList.innerHTML = '';
+
+            const historyNames = Object.keys(history);
+            if(historyNames.length === 0) {
+                elements.historyList.innerHTML = '<div class="qb-bank-empty">还没有保存过手动卷轴。</div>';
+                return;
+            }
+
+            historyNames.forEach((name) => {
+                const div = document.createElement('div');
+                div.className = 'history-item';
+                div.innerHTML = `<span style="flex:1; pointer-events:none;">📜 ${name}</span> <span class="del-btn" title="删除当前题库">✖</span>`;
+                div.addEventListener('click', (e) => {
+                    if (e.target.classList.contains('del-btn')) {
+                        mcConfirm(`确定要永久销毁《${name}》卷轴吗？`, (res) => { if(res){ deleteDB(name); } });
+                    } else {
+                        loadDB(name);
+                        div.style.backgroundColor = '#55ff55';
+                        setTimeout(() => div.style.backgroundColor = '', 200);
+                    }
+                });
+                elements.historyList.appendChild(div);
+            });
+        }
+
+        function loadQBConfigList() {
+            const qbConfigs = getSafeStorage('mc_qb_configs', {});
+            const entries = Object.keys(qbConfigs).map((name) => {
+                const entry = qbConfigs[name] || {};
+                const config = entry.config || {};
+                const filterCount = Number.isInteger(config.levelCount) ? config.levelCount : (Array.isArray(config.filterCols) ? config.filterCols.length : 0);
+                const items = Array.isArray(entry.items) ? entry.items : (Array.isArray(entry.rawRows) ? entry.rawRows : []);
+                return { name, entry, config, filterCount, items };
+            });
+
+            elements.qbConfigList.innerHTML = '';
+
+            if(entries.length === 0) {
+                elements.qbConfigList.innerHTML = '<div class="qb-bank-empty">还没有生成过分级题库。</div>';
+                return;
+            }
+
+            const levels = [...new Set(entries.map((item) => item.filterCount))].sort((a, b) => {
+                if(a === 0 && b !== 0) return 1;
+                if(b === 0 && a !== 0) return -1;
+                return a - b;
+            });
+
+            levels.forEach((level) => {
+                const levelEntries = entries.filter((item) => item.filterCount === level).sort((a, b) => a.name.localeCompare(b.name, 'zh-Hans-CN'));
+                const group = document.createElement('div');
+                group.className = 'qb-bank-group';
+
+                const groupTitle = document.createElement('div');
+                groupTitle.className = 'qb-bank-group-title';
+                groupTitle.innerHTML = `<span>${level === 0 ? '0级题库（默认题库）' : `${level}级筛选题库`}</span><span class="qb-bank-group-subtitle">${levelEntries.length} 个</span>`;
+                group.appendChild(groupTitle);
+
+                const bankItems = document.createElement('div');
+                bankItems.className = 'qb-bank-items';
+
+                levelEntries.forEach(({ name, filterCount, items }) => {
+                    const bankItem = document.createElement('div');
+                    bankItem.className = `qb-bank-item${filterCount === 0 ? ' default' : ''}`;
+
+                    const body = document.createElement('div');
+                    body.className = 'qb-bank-item-body';
+
+                    const title = document.createElement('div');
+                    title.className = 'qb-bank-item-name';
+                    title.textContent = `📚 ${name}`;
+
+                    const meta = document.createElement('div');
+                    meta.className = 'qb-bank-meta';
+                    const levelText = filterCount === 0 ? '默认题库' : `${filterCount}级筛选`;
+                    meta.textContent = `${levelText} · ${items.length} 题`;
+
+                    body.appendChild(title);
+                    body.appendChild(meta);
+
+                    const removeBtn = document.createElement('span');
+                    removeBtn.className = 'qb-bank-remove';
+                    removeBtn.title = '删除生成题库';
+                    removeBtn.textContent = '✖';
+
+                    bankItem.appendChild(body);
+                    bankItem.appendChild(removeBtn);
+
+                    bankItem.addEventListener('click', (e) => {
+                        if(e.target.classList.contains('qb-bank-remove')) {
+                            mcConfirm(`确定要删除分级题库《${name}》吗？`, (res) => {
+                                if(!res) return;
+                                const allConfigs = getSafeStorage('mc_qb_configs', {});
+                                delete allConfigs[name];
+                                setSafeStorage('mc_qb_configs', allConfigs);
+                                if(getSafeStorage('mc_current_qb_config', '') === name) {
+                                    setSafeStorage('mc_current_qb_config', '');
+                                }
+                                loadQBConfigList();
+                            });
+                            return;
+                        }
+                        loadQBConfig(name);
+                        bankItem.style.backgroundColor = '#55ff55';
+                        setTimeout(() => bankItem.style.backgroundColor = '', 200);
+                    });
+
+                    bankItems.appendChild(bankItem);
+                });
+
+                group.appendChild(bankItems);
+                elements.qbConfigList.appendChild(group);
+            });
+        }
+
+        window.loadDB = function(name) {
+            const history = getSafeStorage('mc_yly_history', {});
+            if(history[name]) {
+                elements.dbName.value = name;
+                const data = history[name];
+                if(Array.isArray(data)) {
+                    elements.dbQuestions.value = data.map((i) => i.q).join('\n');
+                    elements.dbAnswers.value = data.map((i) => i.a).join('\n');
+                } else {
+                    elements.dbQuestions.value = data.q;
+                    elements.dbAnswers.value = data.a;
+                }
+            }
+        };
+
+        window.loadQBConfig = function(name) {
+            const qbConfigs = getSafeStorage('mc_qb_configs', {});
+            const record = qbConfigs[name];
+            if(!record) return;
+
+            elements.dbName.value = name;
+            const items = Array.isArray(record.items) ? record.items : (Array.isArray(record.rawRows) ? record.rawRows : []);
+            if(items.length) {
+                const questionList = items.map((item) => String(item.question ?? item.q ?? '').trim()).filter(Boolean);
+                const answerList = items.map((item) => String(item.answer ?? item.a ?? '').trim()).filter(Boolean);
+                elements.dbQuestions.value = questionList.join('\n');
+                elements.dbAnswers.value = answerList.join('\n');
+            }
+        };
+
+        window.deleteDB = function(name) {
+            const history = getSafeStorage('mc_yly_history', {});
+            delete history[name];
+            setSafeStorage('mc_yly_history', history);
+            loadHistoryList();
+        };
+
+        elements.btnDlTemplate.addEventListener('click', () => {
+            if(typeof XLSX === 'undefined') return mcAlert('组件加载中，请稍后。');
+            const wb = XLSX.utils.book_new(), wsDesc = XLSX.utils.aoa_to_sheet([["文言实词消除游戏 - 题库导入模板"], [""], ["A列(类型)", "B列(年级)", "C列(篇目)", "D列(原句-必填,考核字用**包裹)", "E列(注释-必填)", "F列及以后为题库名称(填入1即归入该题库)"]]);
+            XLSX.utils.book_append_sheet(wb, wsDesc, "使用说明");
+            const ws = XLSX.utils.aoa_to_sheet([["类型", "年级", "篇目", "原句", "注释", "初中必背实词", "高中通假字特训"], ["实词", "七上", "《陈太丘与友期行》", "**期**日中", "约定", "1", ""], ["通假字", "八下", "《庄子》", "北冥有鱼", "同“溟”，海", "1", "1"]]);
+            XLSX.utils.book_append_sheet(wb, ws, "题库数据"); XLSX.writeFile(wb, "题库模板.xlsx");
+        });
+
+        if(elements.btnImportExcel && elements.excelFileInput) {
+            elements.btnImportExcel.addEventListener('click', () => { 
+                console.log('[导入功能] 导入按钮被点击，打开文件选择器');
+                elements.excelFileInput.click(); 
+            });
+            elements.excelFileInput.addEventListener('change', (e) => {
+                console.log('[导入功能] 文件选择变化事件');
+                try {
+                    const file = e.target.files[0]; 
+                    if(!file) {
+                        console.log('[导入功能] 未选择文件');
+                        return; 
+                    } 
+                    if(typeof XLSX === 'undefined') {
+                        console.log('[导入功能] XLSX库未加载');
+                        return mcAlert('组件加载中，请稍后。');
+                    }
+                    console.log('[导入功能] 开始读取文件:', file.name);
+                    const reader = new FileReader();
+                    reader.onload = (evt) => {
+                        console.log('[导入功能] 文件已读取，开始解析');
+                        try {
+                            const wb = XLSX.read(evt.target.result, {type: 'binary'}), ws = wb.Sheets[wb.SheetNames.includes("题库数据") ? "题库数据" : wb.SheetNames[0]], json = XLSX.utils.sheet_to_json(ws, {header: 1});
+                            console.log('[导入功能] Excel解析成功，共', json.length, '行');
+                            if(json.length < 2) return mcAlert("表格内容为空或格式不正确！");
+                            
+                            // 调用新的列映射对话框（6.0功能）
+                            pendingExcelData = json;
+                            console.log('[导入功能] 调用showColConfigDialog');
+                            showColConfigDialog(json);
+                            e.target.value = '';
+                        } catch (err) {
+                            console.error('[导入功能] Excel处理出错:', err);
+                            mcAlert('Excel处理出错：' + err.message);
+                        }
+                    };
+                    reader.onerror = () => {
+                        console.error('[导入功能] 文件读取出错');
+                        mcAlert('文件读取出错，请重新尝试。');
+                    };
+                    reader.readAsBinaryString(file);
+                } catch (err) {
+                    console.error('[导入功能] 导入流程出错:', err);
+                    mcAlert('导入流程出错：' + err.message);
+                }
+            });
+        } else {
+            console.error('[导入功能] 缺少必要的按钮或输入元素', {
+                btnImportExcel: !!elements.btnImportExcel,
+                excelFileInput: !!elements.excelFileInput
+            });
+        }
+
+        elements.btnExportExcel.addEventListener('click', () => {
+            if(typeof XLSX === 'undefined') return mcAlert('组件加载中。');
+            const history = getSafeStorage('mc_yly_history', {}); const dbNames = Object.keys(history); if(dbNames.length === 0) return mcAlert("藏宝阁为空！");
+            let headers = ["类型", "年级", "篇目", "原句", "注释", ...dbNames]; let wsData = [headers]; let qaMap = new Map();
+            for(let i=0; i<dbNames.length; i++) {
+                let items = history[dbNames[i]];
+                if(!Array.isArray(items)) { let qs = items.q.split('\n'), as = items.a.split('\n'); items = qs.map((q, idx) => ({t:'未分类',g:'未分类',c:'未分类',q:q.trim(),a:as[idx]?as[idx].trim():''})); }
+                items.forEach(item => { if(!item.q || !item.a) return; let key = item.q + "|||" + item.a; if(!qaMap.has(key)) qaMap.set(key, {...item, banks: new Set()}); qaMap.get(key).banks.add(dbNames[i]); });
+            }
+            qaMap.forEach((val) => { let row = [val.t, val.g, val.c, val.q, val.a]; for(let i=0; i<dbNames.length; i++) row.push(val.banks.has(dbNames[i]) ? "1" : ""); wsData.push(row); });
+            const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(wsData), "题库数据"); XLSX.writeFile(wb, "当前词汇题库备份.xlsx");
+        });
+
+        // ==========================================
+        // 游戏核心机制与倒计时引擎
+        // ==========================================
+        elements.startBtn.addEventListener('click', preStartGame);
+        elements.btnRun.addEventListener('click', () => { elements.sidebar.classList.remove('open'); elements.toggleSidebar.classList.remove('open'); preStartGame(); });
+        
+        elements.btnStopGame.addEventListener('click', () => {
+            if(!gameState.isPlaying) return;
+            if(gameState.timerInterval) clearInterval(gameState.timerInterval);
+            
+            // 判断是否完全没有任何交互（未点选方块也没有错误记录）
+            let hasInteracted = gameState.matchesCount > 0 || gameState.stats.some(s => s.mistakes > 0) || gameState.selectedCard !== null;
+            if (!hasInteracted) { 
+                triggerTimeUpAnimation("矿主提示：小贼！规则让你玩明白了是吧！你的名字我记在小本本上了！"); 
+            }
+            else if (gameState.scoreMultiplier === 1 && Math.random() < 0.6) { 
+                elements.bonusCurrentScore.innerText = gameState.score; elements.bonusModal.style.display = 'flex'; 
+            } 
+            else { 
+                triggerTimeUpAnimation("🏃 你安全撤退了，带着丰厚的战利品！"); 
+            }
+        });
+        
+        elements.btnContinueRetreat.addEventListener('click', () => { elements.bonusModal.style.display = 'none'; triggerTimeUpAnimation("🏃 你安全撤退了，带着丰厚的战利品！"); });
+        elements.btnReturnGame.addEventListener('click', () => { 
+            elements.bonusModal.style.display = 'none'; gameState.scoreMultiplier = 2; updateScoreRate(); 
+            const timeChoice = parseInt(document.querySelector('input[name="time-limit"]:checked').value);
+            if (timeChoice > 0 && gameState.timeLeft > 0) startTimerLoop();
+        });
+
+        function preStartGame() {
+            initAudio();
+
+            const bName = elements.dbName.value.trim() || '快捷练习';
+            const qbConfigStore = getSafeStorage('mc_qb_configs', {});
+            const activeQBConfig = qbConfigStore[bName];
+
+            if(activeQBConfig) {
+                const sourceItems = Array.isArray(activeQBConfig.items) ? activeQBConfig.items : (Array.isArray(activeQBConfig.rawRows) ? activeQBConfig.rawRows : []);
+                if(sourceItems.length === 0) {
+                    mcAlert('这个生成题库里还没有可用题目。');
+                    return;
+                }
+
+                pendingGameData = sourceItems.map((item) => {
+                    const question = String(item.question ?? item.q ?? '').trim();
+                    const answer = String(item.answer ?? item.a ?? '').trim();
+                    const levels = Array.isArray(item.levels) ? item.levels : [];
+                    return {
+                        t: levels[0] || '未分类',
+                        g: levels[1] || '未分类',
+                        c: levels.length > 2 ? levels.slice(2).join(' / ') : '未分类',
+                        q: question,
+                        a: answer
+                    };
+                }).filter((item) => item.q && item.a);
+            } else {
+                const qLines = elements.dbQuestions.value.trim().split(/\r?\n/).filter((l) => l.trim() !== '');
+                const aLines = elements.dbAnswers.value.trim().split(/\r?\n/).filter((l) => l.trim() !== '');
+                if(qLines.length === 0 || qLines.length !== aLines.length) {
+                    mcAlert('请确保问题和答案行数一致且不为空！');
+                    elements.sidebar.classList.add('open');
+                    return;
+                }
+                if(qLines.length < 2) {
+                    mcAlert('方块太少啦，至少需要2对词汇才能生成爆炸糖！');
+                    return;
+                }
+
+                const activeHistory = getSafeStorage('mc_yly_history', {})[bName];
+                pendingGameData = qLines.map((q, i) => {
+                    const match = Array.isArray(activeHistory) ? activeHistory.find((x) => x.q === q) : null;
+                    return { t: match ? match.t : '未分类', g: match ? match.g : '未分类', c: match ? match.c : '未分类', q: q, a: aLines[i] };
+                });
+            }
+
+            const maxPairs = pendingGameData.length;
+            if(maxPairs < 2) {
+                mcAlert('有效题目太少啦，至少需要2对词汇才能生成爆炸糖！');
+                return;
+            }
+
+            elements.pairCountInput.max = maxPairs;
+            const lastCount = getSafeStorage('mc_yly_pair_count', 20);
+            elements.pairCountInput.value = Math.min(lastCount, maxPairs);
+
+            const lastColor = getSafeStorage('mc_yly_hl_color', '#ff3333');
+            elements.hlColorInput.value = lastColor;
+
+            gameState.currentBankName = bName;
+            elements.nameInput.value = '';
+            elements.nameModalOverlay.style.display = 'flex';
+            setTimeout(() => elements.nameInput.focus(), 100);
+        }
+
+        elements.btnCancelName.addEventListener('click', () => { elements.nameModalOverlay.style.display = 'none'; });
+        elements.btnConfirmName.addEventListener('click', launchGame);
+        elements.nameInput.addEventListener('keypress', (e) => { if(e.key === 'Enter') launchGame(); });
+
+        function launchGame() {
+            initAudio();
+            let pName = elements.nameInput.value.trim(); if(pName === "") pName = "史蒂夫(Steve)";
+            
+            const timeChoice = parseInt(document.querySelector('input[name="time-limit"]:checked').value);
+            const userColor = elements.hlColorInput.value;
+            let userCount = parseInt(elements.pairCountInput.value) || 20;
+            if (userCount < 2) userCount = 2;
+
+            setSafeStorage('mc_yly_time', timeChoice);
+            setSafeStorage('mc_yly_hl_color', userColor);
+            setSafeStorage('mc_yly_pair_count', userCount);
+            
+            document.documentElement.style.setProperty('--hl-color', userColor);
+
+            elements.nameModalOverlay.style.display = 'none';
+
+            gameState.isPlaying = true; gameState.playerName = pName; gameState.score = 0; gameState.matchesCount = 0; gameState.scoreMultiplier = 1; 
+            gameState.totalPairs = Math.min(pendingGameData.length, userCount); gameState.selectedCard = null;
+            gameState.timeLeft = timeChoice; gameState.initialTimeChoice = timeChoice;
+            
+            if(gameState.timerInterval) clearInterval(gameState.timerInterval);
+            updateTimerDisplayUI();
+            if (timeChoice > 0) startTimerLoop();
+
+            let selectedItems = shuffleArray(pendingGameData).slice(0, gameState.totalPairs);
+            gameState.stats = selectedItems.map(item => ({ ...item, mistakes: 0, matched: false }));
+
+            elements.playerNameDisplay.innerText = pName; elements.playerScoreDisplay.innerText = "0"; elements.matchesDisplay.innerText = "💎 挖掘组数: 0";
+            updateScoreRate(); elements.startScreen.style.display = 'none'; elements.btnStopGame.style.display = 'block'; elements.gameBoard.innerHTML = '';
+
+            generateCards(gameState.stats, gameState.totalPairs);
+        }
+
+        function startTimerLoop() {
+            gameState.timerInterval = setInterval(() => {
+                if(!gameState.isPlaying) return;
+                gameState.timeLeft--;
+                
+                let elapsed = gameState.initialTimeChoice - gameState.timeLeft;
+                if (elapsed > 0 && elapsed % 60 === 0) playDingSound();
+                if (gameState.timeLeft <= 10 && gameState.timeLeft > 0) playTickSound();
+
+                updateTimerDisplayUI();
+                if(gameState.timeLeft <= 0) {
+                    clearInterval(gameState.timerInterval);
+                    playAlarmSound(); 
+                    triggerTimeUpAnimation("⏳ 时间已尽！系统已强制将你带回营地！"); 
+                }
+            }, 1000);
+        }
+
+        function updateTimerDisplayUI() {
+            if(gameState.timeLeft <= 0 && document.querySelector('input[name="time-limit"]:checked').value === "0") {
+                elements.timerDisplay.innerText = "无限"; elements.timerDisplay.style.color = "#55ff55"; return;
+            }
+            elements.timerDisplay.style.color = (gameState.timeLeft <= 10) ? "#ff5555" : "#55ffff";
+            let m = Math.floor(gameState.timeLeft / 60).toString().padStart(2, '0'), s = (gameState.timeLeft % 60).toString().padStart(2, '0');
+            elements.timerDisplay.innerText = `${m}:${s}`;
+        }
+
+        function getBaseScoreRate(mc) { if(mc >= 15) return 20; if(mc >= 10) return 10; if(mc >= 5) return 6; return 2; }
+        function updateScoreRate() {
+            let totalRate = getBaseScoreRate(gameState.matchesCount) * gameState.scoreMultiplier;
+            elements.pointsRateDisplay.innerText = `⚡ 消除收益: +${totalRate}/组`;
+            elements.pointsRateDisplay.style.color = gameState.scoreMultiplier > 1 ? "#ffaa00" : "#55ffff";
+        }
+
+        function autoFitText(card) {
+            const span = card.querySelector('.card-text-wrapper');
+            let fontSize = 28; const maxHeight = card.clientHeight - 8, maxWidth = card.clientWidth - 8;
+            span.style.fontSize = fontSize + 'px';
+            while((span.scrollHeight > maxHeight || span.scrollWidth > maxWidth) && fontSize > 10) {
+                fontSize--; span.style.fontSize = fontSize + 'px';
+            }
+        }
+
+        function generateCards(statsArray, limit) {
+            let cardsData = []; const bombIndex = Math.floor(Math.random() * limit), bombKeepType = Math.random() > 0.5 ? 'q' : 'a';
+
+            statsArray.forEach((data, index) => {
+                let qText = formatText(data.q), aText = data.a;
+                if (index === bombIndex) { cardsData.push({ statIndex: index, type: bombKeepType, text: bombKeepType === 'q' ? qText : aText, isBomb: true, answerText: aText }); } 
+                else { cardsData.push({ statIndex: index, type: 'q', text: qText, isBomb: false, answerText: aText }); cardsData.push({ statIndex: index, type: 'a', text: aText, isBomb: false, answerText: aText }); }
+            });
+
+            const totalCards = cardsData.length, panelRect = document.getElementById('score-panel').getBoundingClientRect(), boardRect = elements.gameBoard.getBoundingClientRect();
+            let cols = Math.ceil(Math.sqrt(totalCards * 1.6)), rows = Math.ceil(totalCards / cols), spots = [];
+            
+            let loopGuard = 0;
+            while (spots.length < totalCards && loopGuard < 100) {
+                spots = []; let cellW = boardRect.width / cols, cellH = boardRect.height / rows;
+                for (let r = 0; r < rows; r++) {
+                    for (let c = 0; c < cols; c++) {
+                        let cx = boardRect.left + (c + 0.5) * cellW, cy = boardRect.top + (r + 0.5) * cellH;
+                        let cardW = cellW - 12, cardH = cellH - 12;
+                        let aLeft = cx - cardW / 2, aRight = cx + cardW / 2, aTop = cy - cardH / 2, aBottom = cy + cardH / 2;
+                        let sp = 20, pLeft = panelRect.left - sp, pRight = panelRect.right + sp, pTop = panelRect.top - sp, pBottom = panelRect.bottom + sp;
+                        if (!(aRight > pLeft && aLeft < pRight && aBottom > pTop && aTop < pBottom)) spots.push({ r, c });
+                    }
+                }
+                if (spots.length < totalCards) { cols++; rows = Math.ceil((totalCards + 6) / cols); } loopGuard++;
+            }
+
+            spots = shuffleArray(spots); cardsData = shuffleArray(cardsData);
+            const cwP = 100 / cols, chP = 100 / rows;
+
+            cardsData.forEach((data, index) => {
+                const card = document.createElement('div');
+                card.className = `card ${data.type === 'q' ? 'question' : 'answer'}`;
+                card.dataset.statIndex = data.statIndex; card.dataset.type = data.type; card.dataset.isBomb = data.isBomb; card.dataset.answerText = data.answerText; 
+                card.innerHTML = `<span class="card-text-wrapper">${data.text}</span>`;
+                
+                const spot = spots[index];
+                card.style.left = `${(spot.c * cwP) + (cwP / 2)}%`; card.style.top = `${(spot.r * chP) + (chP / 2)}%`;
+                card.style.width = `calc(${cwP}% - 12px)`; card.style.height = `calc(${chP}% - 12px)`;
+
+                card.addEventListener('click', handleCardClick);
+                elements.gameBoard.appendChild(card);
+                setTimeout(() => autoFitText(card), 10);
+            });
+            window.addEventListener('resize', () => { document.querySelectorAll('.card').forEach(c => autoFitText(c)); });
+        }
+
+        function formatText(text) { return text.replace(/\*\*(.*?)\*\*/g, '<span class="highlight">$1</span>'); }
+
+        function handleCardClick(e) {
+            if(!gameState.isPlaying) return;
+            const card = e.currentTarget; if(card.classList.contains('matched')) return;
+
+            if (card.dataset.isBomb === "true") { triggerExplosionSequence(card); return; }
+
+            playClickSound(); 
+            if(!gameState.selectedCard) { card.classList.add('selected'); gameState.selectedCard = card; return; }
+            if(gameState.selectedCard === card) { card.classList.remove('selected'); gameState.selectedCard = null; return; }
+            if(gameState.selectedCard.dataset.type === card.dataset.type) { gameState.selectedCard.classList.remove('selected'); card.classList.add('selected'); gameState.selectedCard = card; return; }
+
+            const firstCard = gameState.selectedCard, secondCard = card; gameState.selectedCard = null; 
+            const idx1 = firstCard.dataset.statIndex, idx2 = secondCard.dataset.statIndex;
+
+            if(idx1 === idx2 || firstCard.dataset.answerText === secondCard.dataset.answerText) {
+                gameState.stats[idx1].matched = true;
+                firstCard.classList.replace('selected', 'matched'); secondCard.classList.add('matched'); playCorrectSound();
+                setTimeout(() => { firstCard.remove(); secondCard.remove(); checkWinCondition(); }, 400);
+
+                let addedPoints = getBaseScoreRate(gameState.matchesCount) * gameState.scoreMultiplier;
+                gameState.matchesCount++; updateScore(addedPoints); updateScoreRate(); 
+            } else {
+                gameState.stats[idx1].mistakes++; gameState.stats[idx2].mistakes++;
+                playWrongSound(); firstCard.classList.remove('selected');
+                firstCard.classList.add('anim-shake'); secondCard.classList.add('anim-shake');
+                setTimeout(() => { firstCard.classList.remove('anim-shake'); secondCard.classList.remove('anim-shake'); }, 300);
+                updateScore(-1); 
+            }
+        }
+
+        // ==========================================
+        // 时间耗尽或撤退：合并消除动画 + 揭晓炸弹
+        // ==========================================
+        function triggerTimeUpAnimation(endMsg) {
+            gameState.isPlaying = false;
+            if(gameState.timerInterval) clearInterval(gameState.timerInterval);
+
+            const remainingCards = Array.from(elements.gameBoard.querySelectorAll('.card:not(.matched)'));
+            if (remainingCards.length === 0) return endGame(endMsg);
+
+            // 翻转并揭晓炸弹 (不爆炸)
+            const bombCard = remainingCards.find(c => c.dataset.isBomb === "true");
+            if (bombCard) {
+                bombCard.style.transition = 'transform 0.3s ease-in';
+                bombCard.style.transform = `translate(-50%, -50%) rotateY(90deg)`;
+                bombCard.style.zIndex = '9999';
+                
+                setTimeout(() => {
+                    bombCard.style.background = '#fff';
+                    bombCard.style.borderColor = '#555';
+                    bombCard.innerHTML = '<span style="font-size: 50px; transform: rotateY(180deg); display: inline-block;">💣</span>';
+                    bombCard.style.transition = 'transform 0.3s ease-out';
+                    bombCard.style.transform = `translate(-50%, -50%) rotateY(180deg)`;
+                }, 300);
+            }
+
+            const normalCards = remainingCards.filter(c => c.dataset.isBomb !== "true");
+            const pairsMap = {};
+            normalCards.forEach(c => {
+                const idx = c.dataset.statIndex;
+                if(!pairsMap[idx]) pairsMap[idx] = [];
+                pairsMap[idx].push(c);
+            });
+            const pairs = Object.values(pairsMap).filter(p => p.length === 2);
+            
+            if (pairs.length === 0) {
+                setTimeout(() => endGame(endMsg), 2500); return;
+            }
+
+            const maxAnimTime = 3500;
+            const delayPerPair = Math.min(maxAnimTime / pairs.length, 600);
+            let pairIndex = 0;
+
+            function animateNextPair() {
+                if (pairIndex >= pairs.length) {
+                    setTimeout(() => endGame(endMsg), 1000); return;
+                }
+                const [c1, c2] = pairs[pairIndex];
+                
+                c1.style.transition = `all ${delayPerPair * 0.4}ms ease`;
+                c2.style.transition = `all ${delayPerPair * 0.4}ms ease`;
+                c1.style.left = `calc(50% - 60px)`; c1.style.top = `50%`; c1.style.zIndex = 1000 + pairIndex;
+                c2.style.left = `calc(50% + 60px)`; c2.style.top = `50%`; c2.style.zIndex = 1000 + pairIndex;
+                
+                playMoveSound();
+
+                setTimeout(() => {
+                    c1.classList.add('matched'); c2.classList.add('matched');
+                    playCorrectSound();
+                    pairIndex++;
+                    setTimeout(animateNextPair, delayPerPair * 0.5);
+                }, delayPerPair * 0.4);
+            }
+            
+            setTimeout(animateNextPair, 600);
+        }
+
+        // ==========================================
+        // 爆炸与收尾结算
+        // ==========================================
+        function triggerExplosionSequence(bombCard) {
+            gameState.isPlaying = false; 
+            if(gameState.timerInterval) clearInterval(gameState.timerInterval);
+            
+            playCreeperHiss(); document.getElementById('darkness-overlay').classList.add('dark-active'); bombCard.classList.add('bomb-primed'); 
+            const bombCenter = document.getElementById('cartoon-bomb-container'); bombCenter.style.display = 'block';
+
+            setTimeout(() => {
+                document.getElementById('darkness-overlay').classList.remove('dark-active'); bombCard.classList.remove('bomb-primed'); bombCenter.style.display = 'none';
+                playExplosionSound(); document.getElementById('game-container').classList.add('explode-active'); document.getElementById('explosion-overlay').classList.add('flash-active'); 
+                const boomEffect = document.getElementById('cartoon-boom'); boomEffect.style.display = 'block'; boomEffect.style.animation = 'boomPop 1.5s forwards';
+                gameState.score = 0; updateScore(0);
+                setTimeout(() => {
+                    document.getElementById('game-container').classList.remove('explode-active'); document.getElementById('explosion-overlay').classList.remove('flash-active');
+                    boomEffect.style.display = 'none'; boomEffect.style.animation = ''; endGame("🧨 BOOM！被炸成了灰烬 🧨");
+                }, 1500);
+            }, 1500);
+        }
+
+        function updateScore(delta) {
+            gameState.score = Math.max(0, gameState.score + delta);
+            elements.playerScoreDisplay.innerText = gameState.score; elements.matchesDisplay.innerText = `💎 挖掘组数: ${gameState.matchesCount}`;
+            elements.playerScoreDisplay.style.transform = 'scale(1.4)'; setTimeout(() => elements.playerScoreDisplay.style.transform = 'scale(1)', 150);
+        }
+
+        function checkWinCondition() {
+            if(elements.gameBoard.querySelectorAll('.card:not(.matched)').length === 1) {
+                if(gameState.timerInterval) clearInterval(gameState.timerInterval);
+                gameState.score += (50 * gameState.scoreMultiplier); updateScore(0); endGame("👑 完美通关！避开了炸药！");
+            }
+        }
+
+        function endGame(titleMsg) {
+            gameState.isPlaying = false; elements.btnStopGame.style.display = 'none';
+            if(gameState.timerInterval) clearInterval(gameState.timerInterval);
+            saveScore(gameState.playerName, gameState.score, gameState.currentBankName, gameState.stats);
+            elements.resultTitle.innerText = titleMsg; elements.resultScoreDisplay.innerText = gameState.score; elements.resultsModal.style.display = 'flex';
+        }
+
+        window.closeResults = function() { elements.resultsModal.style.display = 'none'; elements.startScreen.style.display = 'flex'; elements.gameBoard.innerHTML = ''; renderLeaderboard(); };
+
+        // ==========================================
+        // 生成 PDF 报告与排版引擎
+        // ==========================================
+        function saveScore(name, score, bankName, stats) {
+            let board = getSafeStorage('mc_yly_leaderboard', []); 
+            board.push({ name, score, bankName, stats, date: new Date().toLocaleDateString() });
+            board.sort((a, b) => b.score - a.score); board = board.slice(0, 10); setSafeStorage('mc_yly_leaderboard', board);
+        }
+
+        function renderLeaderboard() {
+            let board = getSafeStorage('mc_yly_leaderboard', []); elements.leaderboardList.innerHTML = '';
+            if(board.length === 0) { elements.leaderboardList.innerHTML = '<div style="text-align:center; color:#333; padding: 10px;">暂无记录</div>'; return; }
+            board.forEach((item, index) => {
+                let rankClass = index < 3 ? `rank-${index + 1}` : '', rankIcon = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
+                const div = document.createElement('div'); div.className = `rank-item ${rankClass}`;
+                div.title = "点击导出 PDF 学习报告";
+                div.onclick = () => showExportModal(index);
+                div.innerHTML = `<span>${rankIcon} ${item.name} 📥</span> <span>${item.score}分</span>`; 
+                elements.leaderboardList.appendChild(div);
+            });
+        }
+        window.clearLeaderboard = function() { mcConfirm('确定清空排行榜吗？不可逆转！', (res) => { if(res){ localStorage.removeItem('mc_yly_leaderboard'); renderLeaderboard(); } }); };
+
+        let pendingExportRecordIndex = null;
+        window.showExportModal = function(recordIndex) {
+            if(typeof html2pdf === 'undefined') return mcAlert('PDF组件仍在加载中或加载失败，请检查网络！');
+            const record = getSafeStorage('mc_yly_leaderboard', [])[recordIndex];
+            if (!record || !record.stats || record.stats.length === 0) return mcAlert("该记录版本过旧，暂无详细学习数据！");
+            pendingExportRecordIndex = recordIndex;
+            document.getElementById('export-pdf-modal').style.display = 'flex'; playClickSound();
+        };
+        window.closePDFModal = function() { document.getElementById('export-pdf-modal').style.display = 'none'; playClickSound(); };
+
+        window.executePDFExport = function(includeAnswers) {
+            closePDFModal();
+            const record = getSafeStorage('mc_yly_leaderboard', [])[pendingExportRecordIndex];
+            
+            let groups = {}, totalCorrect = 0, totalMistakes = 0, totalUnanswered = 0;
+            record.stats.forEach(s => {
+                let key = (s.c && s.c !== '未分类') ? s.c : ((s.t && s.t !== '未分类') ? s.t : '综合考核项');
+                if(!groups[key]) groups[key] = { total: 0, correct: 0, wrong: 0, unanswered: 0 };
+                groups[key].total++;
+                if(s.matched && s.mistakes === 0) { groups[key].correct++; totalCorrect++; }
+                else if(s.mistakes > 0) { groups[key].wrong++; totalMistakes++; }
+                else { groups[key].unanswered++; totalUnanswered++; }
+            });
+
+            let totalAttempted = totalCorrect + totalMistakes, overallRate = totalAttempted > 0 ? Math.round((totalCorrect / totalAttempted) * 100) : 0;
+            let imperfectItems = record.stats.filter(s => s.mistakes > 0 || (!s.matched && s.mistakes === 0)), groupedImperfectItems = {};
+            
+            if (imperfectItems.length > 0) {
+                let uT = new Set(imperfectItems.map(i => i.t)).size, uG = new Set(imperfectItems.map(i => i.g)).size, uC = new Set(imperfectItems.map(i => i.c)).size;
+                let minU = Math.min(uT, uG, uC), gKey = 'c', prefix = '篇目';
+                if (minU === uC) { gKey = 'c'; prefix = '篇目'; } else if (minU === uG) { gKey = 'g'; prefix = '年级'; } else { gKey = 't'; prefix = '类型'; }
+                imperfectItems.forEach(item => {
+                    let k = item[gKey]; if (!k || k === '未分类' || k.trim() === '') k = '综合特训'; else k = `${prefix}：${k}`;
+                    if (!groupedImperfectItems[k]) groupedImperfectItems[k] = []; groupedImperfectItems[k].push(item);
+                });
+            }
+
+            const pdfHTML = `
+                <div style="padding: 40px; font-family: 'Microsoft YaHei', sans-serif; color: #333; background: #fff;">
+                    <h1 style="text-align: center; color: #2f6b9c; border-bottom: 3px solid #5b9bd5; padding-bottom: 15px; margin-bottom: 30px;">
+                        ${record.name} - 《${record.bankName || '未命名卷轴'}》 ${includeAnswers ? '学习报告(含答案)' : '特训题单'}
+                    </h1>
+                    <div style="page-break-inside: avoid; margin-bottom: 40px;">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 20px;">
+                            <h2 style="font-size: 20px; border-left: 6px solid #4a823e; padding-left: 10px; color: #111; margin: 0;">第一部分：学习成效概览</h2>
+                            <div style="font-size: 16px; font-weight: bold; color: #555;">答题正确率：<span style="font-size: 24px; color: ${overallRate>=80?'#4a823e':'#aa0000'};">${totalAttempted > 0 ? overallRate + '%' : 'N/A'}</span></div>
+                        </div>
+                        <div style="display: flex; gap: 15px; margin-bottom: 20px;">
+                            <div style="flex: 1; background: #f0fff0; padding: 15px; border-radius: 10px; text-align: center; border: 2px solid #6bcc5d;"><div style="font-size: 14px; color: #555;">正确提取 (🟢)</div><div style="font-size: 28px; font-weight: bold; color: #4a823e;">${totalCorrect}</div></div>
+                            <div style="flex: 1; background: #fff0f0; padding: 15px; border-radius: 10px; text-align: center; border: 2px solid #ff7575;"><div style="font-size: 14px; color: #555;">记忆混淆 (🔴)</div><div style="font-size: 28px; font-weight: bold; color: #aa0000;">${totalMistakes}</div></div>
+                            <div style="flex: 1; background: #f5f5f5; padding: 15px; border-radius: 10px; text-align: center; border: 2px solid #aaaaaa;"><div style="font-size: 14px; color: #555;">未被发掘 (⚪)</div><div style="font-size: 28px; font-weight: bold; color: #666666;">${totalUnanswered}</div></div>
+                        </div>
+                        <div>
+                            ${Object.keys(groups).map(key => {
+                                let g = groups[key]; let grpAttempted = g.correct + g.wrong; let grpRate = grpAttempted > 0 ? Math.round((g.correct / grpAttempted) * 100) : 0;
+                                let pctC = (g.correct / g.total) * 100, pctW = (g.wrong / g.total) * 100, pctU = (g.unanswered / g.total) * 100;
+                                return `
+                                    <div style="margin-bottom: 15px; page-break-inside: avoid;">
+                                        <div style="display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 14px;"><span style="font-weight: bold;">${key}</span><span style="color: #666;">正确率: <strong style="color: #333;">${grpAttempted > 0 ? grpRate + '%' : 'N/A'}</strong> (总计: ${g.total})</span></div>
+                                        <div style="width: 100%; display: flex; background: #eee; border-radius: 20px; height: 20px; overflow: hidden; border: 1px solid #ddd;">
+                                            <div style="width: ${pctC}%; background: #6bcc5d; height: 100%; display:flex; align-items:center; justify-content:center; color:#fff; font-size:10px; font-weight:bold;">${g.correct>0?g.correct:''}</div>
+                                            <div style="width: ${pctW}%; background: #ff5555; height: 100%; display:flex; align-items:center; justify-content:center; color:#fff; font-size:10px; font-weight:bold;">${g.wrong>0?g.wrong:''}</div>
+                                            <div style="width: ${pctU}%; background: #aaaaaa; height: 100%; display:flex; align-items:center; justify-content:center; color:#fff; font-size:10px; font-weight:bold;">${g.unanswered>0?g.unanswered:''}</div>
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+
+                    <div style="page-break-before: auto; margin-bottom: 30px;">
+                        <h2 style="font-size: 20px; border-left: 6px solid #ffaa00; padding-left: 10px; margin-bottom: 20px; color: #111;">第二部分：失误与未掌握特训区</h2>
+                        ${imperfectItems.length === 0 ? '<div style="background: #fffdf5; padding: 20px; border-radius: 10px; border: 1px dashed #ffb449;"><p style="text-align:center; color: #4a823e; font-weight:bold; font-size:18px;">🎉 太棒了！您本次挑战全对，掌握得非常扎实！</p></div>' : `
+                            ${Object.keys(groupedImperfectItems).map(groupName => {
+                                let listHTML = `<ol style="margin-left: 20px; line-height: 2.2; font-size: 16px;">`;
+                                groupedImperfectItems[groupName].forEach(item => {
+                                    let styledQ = item.q.replace(/\*\*(.*?)\*\*/g, '<span style="color: #d32f2f; font-weight: bold; text-decoration: underline;">$1</span>');
+                                    let tag = item.mistakes > 0 ? `(错 ${item.mistakes} 次)` : `(未完成)`;
+                                    listHTML += `
+                                        <li style="margin-bottom: 10px; page-break-inside: avoid;">
+                                            ${styledQ} 
+                                            <span style="display:inline-block; width: 250px; border-bottom: 1px solid #333; margin-left: 10px;"></span> 
+                                            <span style="font-size: 12px; color: #999; margin-left: 10px;">状态: ${tag}</span>
+                                        </li>
+                                    `;
+                                });
+                                listHTML += `</ol>`;
+                                return `
+                                    <div style="margin-bottom: 30px; background: #fffdf5; padding: 20px; border-radius: 10px; border: 1px dashed #ffb449;">
+                                        <h4 style="color: #2f6b9c; margin-bottom: 15px; border-bottom: 2px dotted #ccc; padding-bottom: 8px; font-size: 18px; page-break-after: avoid;">📍 ${groupName}</h4>
+                                        ${listHTML}
+                                    </div>
+                                `;
+                            }).join('')}
+                        `}
+                    </div>
+
+                    ${(imperfectItems.length > 0 && includeAnswers) ? `
+                    <div style="page-break-before: always; margin-bottom: 20px;">
+                        <h2 style="font-size: 20px; border-left: 6px solid #4a823e; padding-left: 10px; margin-bottom: 20px; color: #111;">第三部分：答案核对</h2>
+                        ${Object.keys(groupedImperfectItems).map(groupName => {
+                            let ansHTML = `<ol style="margin-left: 20px; line-height: 1.8; font-size: 15px; color: #444;">`;
+                            groupedImperfectItems[groupName].forEach(item => {
+                                ansHTML += `<li style="margin-bottom: 5px; page-break-inside: avoid;"><strong>${item.a}</strong></li>`;
+                            });
+                            ansHTML += `</ol>`;
+                            return `
+                                <div style="margin-bottom: 20px; background: #f5f5f5; padding: 20px; border-radius: 10px; border: 1px solid #ddd; page-break-inside: avoid;">
+                                    <h4 style="color: #333; margin-bottom: 10px; font-size: 16px;">📚 ${groupName}</h4>
+                                    ${ansHTML}
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>` : ''}
+
+                    <div style="text-align: center; margin-top: 40px; color: #999; font-size: 12px; border-top: 1px dashed #ddd; padding-top: 15px; page-break-inside: avoid;">
+                        本学习报告由《文言实词矿区》自动生成 | 拒绝死记硬背，在挖掘中吸收知识
+                    </div>
+                </div>
+            `;
+
+            const pdfContainer = document.createElement('div'); pdfContainer.innerHTML = pdfHTML; document.body.appendChild(pdfContainer);
+            const opt = { margin: 10, filename: `${record.name}_${record.bankName}_特训卷.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }, pagebreak: { mode: ['css', 'legacy'] } };
+            html2pdf().set(opt).from(pdfContainer).save().then(() => document.body.removeChild(pdfContainer));
+        };
+
+        function shuffleArray(array) { for (let i = array.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [array[i], array[j]] = [array[j], array[i]]; } return array; }
+
+        // ==================== 分层题库系统核心逻辑 ====================
+        const columnConfigState = {
+            jsonData: [],
+            headers: [],
+            filterCols: [],
+            questionCol: -1,
+            answerCol: -1
+        };
+        let pendingExcelData = null;
+        let editingQBConfigName = null;
+
+        function getHeaderName(col) {
+            return String(columnConfigState.headers[col] || `列${col + 1}`);
+        }
+
+        function getRoleText(role) {
+            if(role === 'question') return '题目列';
+            if(role === 'answer') return '答案列';
+            return '筛选列';
+        }
+
+        function buildRoleCard(role, col, orderIndex) {
+            const card = document.createElement('div');
+            card.className = `qb-role-card qb-role-card--${role}`;
+            card.draggable = true;
+            card.dataset.role = role;
+            card.dataset.col = String(col);
+
+            const handle = document.createElement('span');
+            handle.className = 'qb-role-handle';
+            handle.textContent = '⋮⋮';
+
+            const main = document.createElement('div');
+            main.className = 'qb-role-main';
+
+            const title = document.createElement('div');
+            title.className = 'qb-role-title';
+            const headerName = getHeaderName(col);
+            title.textContent = `${getRoleText(role)}：${headerName}`;
+
+            const subtitle = document.createElement('div');
+            subtitle.className = 'qb-role-subtitle';
+            if(role === 'filter') {
+                subtitle.textContent = `第${col + 1}列 · 当前排序第 ${orderIndex + 1} 位`;
+            } else {
+                subtitle.textContent = `第${col + 1}列 · 拖到另一张卡片可互换`;
+            }
+
+            const badge = document.createElement('span');
+            badge.className = 'qb-role-badge';
+            badge.textContent = role === 'filter' ? `筛选${orderIndex + 1}` : getRoleText(role);
+
+            main.appendChild(title);
+            main.appendChild(subtitle);
+            card.appendChild(handle);
+            card.appendChild(main);
+            card.appendChild(badge);
+
+            card.addEventListener('dragstart', (e) => {
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', JSON.stringify({ role, col }));
+                card.classList.add('dragging');
+            });
+
+            card.addEventListener('dragend', () => {
+                card.classList.remove('dragging');
+            });
+
+            return card;
+        }
+
+        function parseDragPayload(event) {
+            try {
+                return JSON.parse(event.dataTransfer.getData('text/plain'));
+            } catch (error) {
+                return null;
+            }
+        }
+
+        function moveFilterColumn(fromCol, toCol, insertBefore = true) {
+            const fromIndex = columnConfigState.filterCols.indexOf(fromCol);
+            if(fromIndex === -1) return;
+
+            columnConfigState.filterCols.splice(fromIndex, 1);
+            const targetIndex = columnConfigState.filterCols.indexOf(toCol);
+            if(targetIndex === -1) {
+                columnConfigState.filterCols.push(fromCol);
+            } else {
+                const insertIndex = insertBefore ? targetIndex : targetIndex + 1;
+                columnConfigState.filterCols.splice(insertIndex, 0, fromCol);
+            }
+        }
+
+        function swapQuestionAndAnswer() {
+            const temp = columnConfigState.questionCol;
+            columnConfigState.questionCol = columnConfigState.answerCol;
+            columnConfigState.answerCol = temp;
+        }
+
+        function renderColumnConfigDialog() {
+            const filterDropzone = document.getElementById('qb-filter-dropzone');
+            const questionDropzone = document.getElementById('qb-question-dropzone');
+            const answerDropzone = document.getElementById('qb-answer-dropzone');
+
+            if(!filterDropzone || !questionDropzone || !answerDropzone) {
+                console.error('列映射对话框的 DOM 元素未找到', {
+                    filterDropzone: !!filterDropzone,
+                    questionDropzone: !!questionDropzone,
+                    answerDropzone: !!answerDropzone
+                });
+                mcAlert('对话框初始化失败，请刷新页面后重试。');
+                return;
+            }
+
+            filterDropzone.innerHTML = '';
+            questionDropzone.innerHTML = '';
+            answerDropzone.innerHTML = '';
+
+            filterDropzone.ondragover = (e) => {
+                e.preventDefault();
+            };
+            filterDropzone.ondrop = (e) => {
+                e.preventDefault();
+                const payload = parseDragPayload(e);
+                if(!payload || payload.role !== 'filter') return;
+                const fromIndex = columnConfigState.filterCols.indexOf(payload.col);
+                if(fromIndex === -1) return;
+                if(fromIndex === columnConfigState.filterCols.length - 1) return;
+                columnConfigState.filterCols.splice(fromIndex, 1);
+                columnConfigState.filterCols.push(payload.col);
+                renderColumnConfigDialog();
+                updateConfigSummary();
+            };
+
+            columnConfigState.filterCols.forEach((col, index) => {
+                const card = buildRoleCard('filter', col, index);
+                card.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    card.style.transform = 'translateY(-2px) scale(1.01)';
+                });
+                card.addEventListener('dragleave', () => {
+                    card.style.transform = '';
+                });
+                card.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    card.style.transform = '';
+                    const payload = parseDragPayload(e);
+                    if(!payload || payload.role !== 'filter' || payload.col === col) return;
+                    moveFilterColumn(payload.col, col, true);
+                    renderColumnConfigDialog();
+                    updateConfigSummary();
+                });
+                filterDropzone.appendChild(card);
+            });
+
+            const questionCard = buildRoleCard('question', columnConfigState.questionCol, 0);
+            const answerCard = buildRoleCard('answer', columnConfigState.answerCol, 0);
+
+            const bindCardDropZone = (zone, targetRole) => {
+                zone.ondragover = (e) => {
+                    e.preventDefault();
+                    zone.style.boxShadow = '0 0 0 2px rgba(33,150,243,0.35) inset';
+                };
+                zone.ondragleave = () => {
+                    zone.style.boxShadow = '';
+                };
+                zone.ondrop = (e) => {
+                    e.preventDefault();
+                    zone.style.boxShadow = '';
+                    const payload = parseDragPayload(e);
+                    if(!payload || payload.role === 'filter' || payload.role === targetRole) return;
+                    swapQuestionAndAnswer();
+                    renderColumnConfigDialog();
+                    updateConfigSummary();
+                };
+            };
+
+            bindCardDropZone(questionDropzone, 'question');
+            bindCardDropZone(answerDropzone, 'answer');
+
+            questionCard.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                questionCard.style.transform = 'translateY(-2px) scale(1.01)';
+            });
+            questionCard.addEventListener('dragleave', () => {
+                questionCard.style.transform = '';
+            });
+            questionCard.addEventListener('drop', (e) => {
+                e.preventDefault();
+                questionCard.style.transform = '';
+                const payload = parseDragPayload(e);
+                if(!payload || payload.role === 'filter' || payload.role === 'question') return;
+                swapQuestionAndAnswer();
+                renderColumnConfigDialog();
+                updateConfigSummary();
+            });
+
+            answerCard.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                answerCard.style.transform = 'translateY(-2px) scale(1.01)';
+            });
+            answerCard.addEventListener('dragleave', () => {
+                answerCard.style.transform = '';
+            });
+            answerCard.addEventListener('drop', (e) => {
+                e.preventDefault();
+                answerCard.style.transform = '';
+                const payload = parseDragPayload(e);
+                if(!payload || payload.role === 'filter' || payload.role === 'answer') return;
+                swapQuestionAndAnswer();
+                renderColumnConfigDialog();
+                updateConfigSummary();
+            });
+
+            questionDropzone.appendChild(questionCard);
+            answerDropzone.appendChild(answerCard);
+            updateConfigSummary();
+        }
+
+        function showColConfigDialog(jsonData) {
+            console.log('[配置对话框] showColConfigDialog被调用');
+            const headers = jsonData[0] || [];
+            const colCount = headers.length;
+            console.log('[配置对话框] 列数:', colCount, '列标题:', headers);
+
+            if(colCount < 2) {
+                mcAlert('Excel 至少需要两列，最后两列用于题目和答案。');
+                return;
+            }
+
+            columnConfigState.jsonData = jsonData;
+            columnConfigState.headers = headers;
+            columnConfigState.questionCol = colCount - 2;
+            columnConfigState.answerCol = colCount - 1;
+            columnConfigState.filterCols = [];
+            for(let i = 0; i < colCount - 2; i++) {
+                columnConfigState.filterCols.push(i);
+            }
+            console.log('[配置对话框] 初始配置设置完成:', columnConfigState);
+
+            console.log('[配置对话框] 调用renderColumnConfigDialog');
+            renderColumnConfigDialog();
+            
+            const overlay = document.getElementById('col-config-modal-overlay');
+            console.log('[配置对话框] 获取overlay元素:', !!overlay);
+            if(overlay) {
+                overlay.style.display = 'flex';
+                console.log('[配置对话框] 显示对话框');
+            } else {
+                console.error('[配置对话框] 找不到overlay元素！');
+                mcAlert('对话框加载失败，请刷新页面。');
+            }
+        }
+
+        function updateConfigSummary() {
+            const summary = document.getElementById('qb-config-summary');
+            const filterCols = columnConfigState.filterCols.slice();
+            const questionCol = columnConfigState.questionCol;
+            const answerCol = columnConfigState.answerCol;
+
+            if(questionCol < 0 || answerCol < 0) {
+                summary.innerHTML = '⚠️ <strong>配置不完整</strong>：请确认题目列和答案列都已设置';
+                summary.style.background = '#ffebee';
+                summary.style.borderColor = '#f44336';
+                summary.style.color = '#c62828';
+                return;
+            }
+
+            const filterText = filterCols.length === 0
+                ? '默认题库（不启用筛选列）'
+                : filterCols.map((col, index) => `筛选${index + 1}：${getHeaderName(col)}`).join(' → ');
+            summary.innerHTML = `✅ <strong>配置完整</strong>：${filterText} | 题目：${getHeaderName(questionCol)} | 答案：${getHeaderName(answerCol)}`;
+            summary.style.background = '#e8f5e9';
+            summary.style.borderColor = '#4caf50';
+            summary.style.color = '#1b5e20';
+        }
+
+        function closeColConfigModal() {
+            document.getElementById('col-config-modal-overlay').style.display = 'none';
+            pendingExcelData = null;
+        }
+
+        function confirmColConfig() {
+            const questionCol = columnConfigState.questionCol;
+            const answerCol = columnConfigState.answerCol;
+            const filterCols = columnConfigState.filterCols.slice();
+
+            if(questionCol < 0 || answerCol < 0) {
+                mcAlert('配置不完整：必须同时设置题目列和答案列！');
+                return;
+            }
+
+            let configName = document.getElementById('qb-config-name-input').value.trim();
+            if(!configName) {
+                configName = `配置_${new Date().getTime()}`;
+            }
+
+            const qbConfig = {
+                configName: configName,
+                filterCols: filterCols,
+                questionCol: questionCol,
+                answerCol: answerCol,
+                levelCount: filterCols.length,
+                createdAt: new Date().toISOString()
+            };
+
+            if(!buildAndSaveQBTree(pendingExcelData, qbConfig)) {
+                return;
+            }
+
+            document.getElementById('col-config-modal-overlay').style.display = 'none';
+            pendingExcelData = null;
+            loadQBConfigList();
+            mcAlert(`✅ 配置"${configName}"已保存！题库已生成并加入藏宝阁。`);
+        }
+
+        // ==================== 将关键函数挂载到全局作用域，以便 HTML onclick 属性可以访问 ====================
+        window.closeColConfigModal = closeColConfigModal;
+        window.confirmColConfig = confirmColConfig;
+
+        function buildAndSaveQBTree(jsonData, qbConfig) {
+            const qCol = qbConfig.questionCol;
+            const aCol = qbConfig.answerCol;
+            const filterCols = Array.isArray(qbConfig.filterCols) ? qbConfig.filterCols.slice() : [];
+
+            const qbTree = {};
+            const items = [];
+
+            for(let row = 1; row < jsonData.length; row++) {
+                const rowData = jsonData[row];
+                if(!rowData) continue;
+
+                const question = rowData[qCol] ? String(rowData[qCol]).trim() : '';
+                const answer = rowData[aCol] ? String(rowData[aCol]).trim() : '';
+                if(!question || !answer) continue;
+
+                const levels = filterCols.map((filterCol) => {
+                    const filterVal = rowData[filterCol] ? String(rowData[filterCol]).trim() : '';
+                    return filterVal || '未分类';
+                });
+                items.push({ question, answer, levels, rowData });
+
+                let current = qbTree;
+                levels.forEach((levelName) => {
+                    if(!current[levelName]) {
+                        current[levelName] = {};
+                    }
+                    current = current[levelName];
+                });
+
+                if(!current._items) {
+                    current._items = [];
+                }
+                current._items.push({ question, answer, levels });
+            }
+
+            if(items.length === 0) {
+                mcAlert('没有找到可用题目，请检查题目列和答案列。');
+                return false;
+            }
+
+            function countItems(node) {
+                let total = node._items ? node._items.length : 0;
+                for(let key in node) {
+                    if(key !== '_items' && !key.startsWith('_')) {
+                        total += countItems(node[key]);
+                    }
+                }
+                return total;
+            }
+
+            function annotateNode(node, depth) {
+                for(let key in node) {
+                    if(key !== '_items' && !key.startsWith('_')) {
+                        annotateNode(node[key], depth + 1);
+                    }
+                }
+                if(!node._items) {
+                    node._items = [];
+                }
+                node._count = countItems(node);
+                node._depth = depth;
+            }
+
+            annotateNode(qbTree, 0);
+
+            const allConfigs = getSafeStorage('mc_qb_configs', {});
+            allConfigs[qbConfig.configName] = {
+                config: qbConfig,
+                tree: qbTree,
+                items: items,
+                rawJsonData: jsonData
+            };
+            setSafeStorage('mc_qb_configs', allConfigs);
+            setSafeStorage('mc_current_qb_config', qbConfig.configName);
+            return true;
+        }
+    </script>
+
+    <!-- ==================== 分层题库系统模态框 ==================== -->
+    <div id="col-config-modal-overlay" class="mc-modal-overlay" style="display: none;">
+        <div class="mc-modal-box col-config-modal">
+            <h3 class="col-config-header">📋 智能列映射向导</h3>
+            <div style="background: #fff9e6; border: 2px solid #ffb74d; border-radius: 8px; padding: 12px; margin-bottom: 15px; font-size: 13px; color: #e65100; line-height: 1.6;">
+                <strong>💡 使用提示：</strong><br>
+                ✅ 我们已自动识别您的Excel列<br>
+                ✅ 筛选列会集中在左侧同一个圆角矩形里，并且可以拖动调顺序<br>
+                ✅ 题目和答案各占一个不同颜色的圆角矩形，也可以互换位置<br>
+                ✅ 最后两列默认作为"题目"和"答案"
+            </div>
+            <div class="qb-role-columns">
+                <div class="qb-role-section qb-filter-section">
+                    <div class="qb-role-section-title">🔁 筛选列 <span class="qb-role-section-desc">拖动卡片可调整分类顺序</span></div>
+                    <div class="qb-role-dropzone qb-role-list" id="qb-filter-dropzone"></div>
+                </div>
+                <div class="qb-role-side">
+                    <div class="qb-role-section qb-question-section">
+                        <div class="qb-role-section-title">🟦 题目列 <span class="qb-role-section-desc">可与答案互换</span></div>
+                        <div class="qb-role-dropzone single" id="qb-question-dropzone"></div>
+                    </div>
+                    <div class="qb-role-section qb-answer-section">
+                        <div class="qb-role-section-title">🟪 答案列 <span class="qb-role-section-desc">可与题目互换</span></div>
+                        <div class="qb-role-dropzone single" id="qb-answer-dropzone"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="qb-config-summary" id="qb-config-summary">等待配置...</div>
+            <label style="font-weight: bold; color: #333; margin-bottom: 5px;">📝 给此配置起名 (可选)</label>
+            <input type="text" class="qb-config-name-input" id="qb-config-name-input" placeholder="例如：按级别和篇目分类">
+            <div class="col-config-actions">
+                <button class="mc-btn" style="background: #aa0000;" onclick="closeColConfigModal()">❌ 取消</button>
+                <button class="mc-btn" style="background: #3c8527;" onclick="confirmColConfig()">✅ 确认映射</button>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>

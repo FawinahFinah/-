@@ -1,0 +1,2942 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>华山论剑 - 武林诗词</title>
+  <!-- 使用全球 CDN 替代国内CDN（更稳定） -->
+  <script crossorigin="anonymous" src="https://unpkg.com/react@18.2.0/umd/react.production.min.js"></script>
+  <script crossorigin="anonymous" src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
+  <script crossorigin="anonymous" src="https://unpkg.com/@babel/standalone@7.23.5/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- 库加载检查和备用方案 -->
+  <script>
+    window.libsLoaded = false;
+    window.loadStartTime = Date.now();
+    window.libCheckInterval = setInterval(function() {
+      if (window.React && window.ReactDOM) {
+        window.libsLoaded = true;
+        clearInterval(window.libCheckInterval);
+        clearTimeout(window.libCheckTimeout);
+        console.log('✅ 库加载成功，耗时:', (Date.now() - window.loadStartTime), 'ms');
+        document.getElementById('status').textContent = '✓ 库加载成功，正在渲染...';
+      }
+    }, 200);
+    
+    // 15秒后如果还没加载，显示诊断信息
+    window.libCheckTimeout = setTimeout(function() {
+      if (!window.libsLoaded) {
+        console.error('❌ 库加载失败，已耗时15秒');
+        var root = document.getElementById('root');
+        var react = !!window.React ? '✓ React' : '✗ React';
+        var reactDOM = !!window.ReactDOM ? '✓ ReactDOM' : '✗ ReactDOM';
+        var babel = !!window.Babel ? '✓ Babel' : '✗ Babel';
+        
+        root.innerHTML = '<div style="padding:30px;text-align:center;font-size:14px;color:#ff6b6b;">' +
+          '<div style="margin-bottom:20px;font-size:18px;">⚠️ 库加载超时</div>' +
+          '<div style="margin-bottom:10px;color:#fff;">库加载状态:</div>' +
+          '<div style="margin:8px 0;">' + react + ' React</div>' +
+          '<div style="margin:8px 0;">' + reactDOM + ' ReactDOM</div>' +
+          '<div style="margin:8px 0;">' + babel + ' Babel</div>' +
+          '<div style="margin-top:20px;color:#ffb347;">建议:</div>' +
+          '<div style="color:#fff;margin-bottom:15px;font-size:12px;line-height:1.6;">' +
+          '1. 检查网络连接是否正常<br/>' +
+          '2. 尝试刷新页面<br/>' +
+          '3. 如果仍未解决，尝试使用代理或VPN<br/>' +
+          '4. 按 F12 查看控制台中的错误信息' +
+          '</div>' +
+          '<button onclick="location.reload()" style="padding:10px 24px;background:#667eea;color:white;border:none;border-radius:5px;cursor:pointer;font-size:14px;margin-top:10px;">' +
+          '刷新重试' +
+          '</button></div>';
+      }
+    }, 15000);
+  </script>
+</head>
+<body>
+  <div id="root" style="display:flex;align-items:center;justify-content:center;width:100%;height:100vh;background:#000;color:#fff;font-size:20px;font-family:Arial">
+    <div style="text-align:center;">
+      <div style="font-size:32px;margin-bottom:10px;">⏳</div>
+      <div>游戏加载中...</div>
+      <div style="margin-top:20px;font-size:12px;color:#888;">
+        <div id="status">正在加载库...</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 实时更新加载状态
+    var statusDiv = document.getElementById('status');
+    var checkCount = 0;
+    var statusInterval = setInterval(function() {
+      checkCount++;
+      if (window.React) statusDiv.textContent = '✓ React 已加载';
+      if (window.ReactDOM) statusDiv.textContent = '✓ React + ReactDOM 已加载';
+      if (window.Babel) statusDiv.textContent = '✓ 核心库已加载，正在初始化...';
+      if (checkCount > 100) { clearInterval(statusInterval); }
+    }, 100);
+  </script>
+
+  <script type="text/babel">
+const { useState, useEffect, useRef } = React;
+
+// --- 动态加载库 ---
+const loadAssets = () => {
+  return new Promise((resolve) => {
+    let assetCount = 0;
+    const checkDone = () => { assetCount--; if (assetCount === 0) resolve(); };
+    
+    // 加载字体（非必需，失败不影响）
+    if (!document.getElementById('font-zhi')) {
+      assetCount++;
+      const link = document.createElement('link');
+      link.id = 'font-zhi';
+      link.href = 'https://fonts.googleapis.com/css2?family=Crimson+Text:wght@400;700&display=swap';
+      link.rel = 'stylesheet';
+      link.onerror = checkDone;
+      link.onload = checkDone;
+      document.head.appendChild(link);
+    }
+    
+    // 加载 XLSX 库（非必需，用于Excel导入，失败不影响游戏运行）
+    if (!document.querySelector(`script[src*="xlsx"]`)) {
+      assetCount++;
+      const script = document.createElement('script');
+      script.src = 'https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js';
+      script.onerror = checkDone;
+      script.onload = checkDone;
+      document.head.appendChild(script);
+    }
+    
+    // 如果没有需要加载的资源，立即完成
+    if (assetCount === 0) resolve();
+  });
+};
+
+// --- Web Audio 二次元特效与力量型引擎 ---
+const initAudio = () => {
+  if (!window.audioCtx) window.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (window.audioCtx.state === 'suspended') window.audioCtx.resume();
+};
+
+const playSound = (type, param = 0) => {
+  try {
+    if (!window.audioCtx) return;
+    const ctx = window.audioCtx;
+    const now = ctx.currentTime;
+    
+    const playNoise = (duration, filterType, freq, rampFreq) => {
+      const bufferSize = ctx.sampleRate * duration;
+      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+      const noise = ctx.createBufferSource(); noise.buffer = buffer;
+      const filter = ctx.createBiquadFilter(); filter.type = filterType;
+      filter.frequency.setValueAtTime(freq, now);
+      if (rampFreq) filter.frequency.exponentialRampToValueAtTime(rampFreq, now + duration);
+      const gain = ctx.createGain(); gain.gain.setValueAtTime(1, now); gain.gain.exponentialRampToValueAtTime(0.01, now + duration);
+      noise.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
+      noise.start(now);
+    };
+
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+
+    if (type === 'start') {
+      osc.type = 'square'; osc.frequency.setValueAtTime(100, now); osc.frequency.exponentialRampToValueAtTime(20, now + 0.3);
+      gain.gain.setValueAtTime(1, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+      osc.start(now); osc.stop(now + 0.3); playNoise(0.2, 'lowpass', 400, 50);
+    } else if (type === 'ready') {
+      osc.type = 'sine'; osc.frequency.setValueAtTime(1200, now); osc.frequency.exponentialRampToValueAtTime(2000, now + 0.1);
+      gain.gain.setValueAtTime(0, now); gain.gain.linearRampToValueAtTime(0.4, now+0.02); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+      osc.start(now); osc.stop(now + 0.2);
+    } else if (type === 'drum_heavy') {
+      osc.type = 'triangle'; osc.frequency.setValueAtTime(150, now); osc.frequency.exponentialRampToValueAtTime(30, now + 0.08);
+      gain.gain.setValueAtTime(1.5, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+      osc.start(now); osc.stop(now + 0.08); playNoise(0.05, 'lowpass', 500, 100);
+    } else if (type === 'drum_light') {
+      osc.type = 'sine'; osc.frequency.setValueAtTime(300, now); osc.frequency.exponentialRampToValueAtTime(100, now + 0.05);
+      gain.gain.setValueAtTime(0.5, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
+      osc.start(now); osc.stop(now + 0.05);
+    } else if (type === 'cutin') {
+      // 完美的二次元 Zing 拔剑高光音效
+      osc.type = 'sine'; osc.frequency.setValueAtTime(4000, now); osc.frequency.exponentialRampToValueAtTime(8000, now + 0.1);
+      gain.gain.setValueAtTime(0, now); gain.gain.linearRampToValueAtTime(1, now+0.02); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+      osc.start(now); osc.stop(now + 0.5); playNoise(0.4, 'highpass', 4000, 8000);
+    } else if (type === 'ultimate') {
+      if (param === 0) { // 🗡️ 一剑开天门：剑气扫过 + 金属回响 + 低频冲击
+        osc.type = 'sawtooth'; osc.frequency.setValueAtTime(3000, now); osc.frequency.exponentialRampToValueAtTime(80, now + 0.25);
+        gain.gain.setValueAtTime(0.8, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+        osc.start(now); osc.stop(now + 0.25);
+        playNoise(0.4, 'highpass', 5000, 10000);
+        setTimeout(() => {
+          const o2 = ctx.createOscillator(); const g2 = ctx.createGain();
+          o2.connect(g2); g2.connect(ctx.destination);
+          o2.type = 'sine'; o2.frequency.setValueAtTime(200, ctx.currentTime); o2.frequency.exponentialRampToValueAtTime(30, ctx.currentTime + 0.3);
+          g2.gain.setValueAtTime(1.2, ctx.currentTime); g2.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+          o2.start(ctx.currentTime); o2.stop(ctx.currentTime + 0.3);
+        }, 50);
+      } else if (param === 1) { // ⛰️ 泰山压顶：下落呼啸 + 落地重击
+        osc.disconnect();
+        playNoise(0.3, 'bandpass', 800, 200);
+        setTimeout(() => {
+          const o2 = ctx.createOscillator(); const g2 = ctx.createGain();
+          o2.connect(g2); g2.connect(ctx.destination);
+          o2.type = 'sine'; o2.frequency.setValueAtTime(80, ctx.currentTime); o2.frequency.linearRampToValueAtTime(8, ctx.currentTime + 0.7);
+          g2.gain.setValueAtTime(2.5, ctx.currentTime); g2.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.7);
+          o2.start(ctx.currentTime); o2.stop(ctx.currentTime + 0.7);
+          playNoise(0.6, 'lowpass', 300, 20);
+        }, 300);
+      } else if (param === 2) { // 🪞 碎空
+        osc.type = 'triangle'; osc.frequency.setValueAtTime(3000, now); osc.frequency.exponentialRampToValueAtTime(200, now + 0.3);
+        gain.gain.setValueAtTime(1, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3); osc.start(now); osc.stop(now + 0.3);
+        playNoise(0.4, 'bandpass', 4000, 1000);
+      } else if (param === 3) { // ☄️ 火弩箭：5连发射 + 5连穿孔轰鸣
+        // 阶段1: 发射 (0-0.5s): 高通噪声"咻"，2000Hz → 6000Hz，5次间隔0.1s，音量递增
+        const rocketGains = [0.4, 0.5, 0.6, 0.7, 0.8];
+        for (let i = 0; i < 5; i++) {
+          setTimeout(() => {
+            const buf = ctx.createBuffer(1, ctx.sampleRate * 0.15, ctx.sampleRate);
+            const data = buf.getChannelData(0);
+            for (let j = 0; j < buf.length; j++) data[j] = Math.random() * 2 - 1;
+            const noise = ctx.createBufferSource(); noise.buffer = buf;
+            const filter = ctx.createBiquadFilter(); filter.type = 'highpass';
+            filter.frequency.setValueAtTime(2000, ctx.currentTime);
+            filter.frequency.exponentialRampToValueAtTime(6000, ctx.currentTime + 0.15);
+            const g = ctx.createGain(); g.gain.setValueAtTime(rocketGains[i], ctx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2);
+            noise.connect(filter); filter.connect(g); g.connect(ctx.destination);
+            noise.start(ctx.currentTime); noise.stop(ctx.currentTime + 0.2);
+          }, i * 100);
+        }
+        // 阶段2: 穿孔落地 (0.4-1.5s): 5次沉闷击中+穿孔爆炸
+        for (let i = 0; i < 5; i++) {
+          setTimeout(() => {
+            const o = ctx.createOscillator(); const g = ctx.createGain();
+            o.connect(g); g.connect(ctx.destination);
+            o.type = 'square'; o.frequency.setValueAtTime(150 - i * 15, ctx.currentTime);
+            o.frequency.exponentialRampToValueAtTime(40 - i * 8, ctx.currentTime + 0.2);
+            g.gain.setValueAtTime(1.5 - i * 0.2, ctx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.25);
+            o.start(ctx.currentTime); o.stop(ctx.currentTime + 0.25);
+            // 穿孔爆炸音：小幅mid频段突发
+            const buf = ctx.createBuffer(1, ctx.sampleRate * 0.12, ctx.sampleRate);
+            const data = buf.getChannelData(0);
+            for (let j = 0; j < buf.length; j++) data[j] = Math.random() * 2 - 1;
+            const noise = ctx.createBufferSource(); noise.buffer = buf;
+            const filter = ctx.createBiquadFilter(); filter.type = 'bandpass';
+            filter.frequency.setValueAtTime(1200, ctx.currentTime); 
+            filter.Q.setValueAtTime(3, ctx.currentTime);
+            const ng = ctx.createGain(); ng.gain.setValueAtTime(0.8, ctx.currentTime);
+            ng.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
+            noise.connect(filter); filter.connect(ng); ng.connect(ctx.destination);
+            noise.start(ctx.currentTime); noise.stop(ctx.currentTime + 0.15);
+          }, 400 + i * 200);
+        }
+      } else if (param === 4) { // ⚡ 雷鸣斩：3颗天雷 + 电击着火
+        // 主雷击音：低频方波 + 高频电弧
+        osc.type = 'square'; osc.frequency.setValueAtTime(180, now);
+        osc.frequency.exponentialRampToValueAtTime(8, now + 0.4);
+        gain.gain.setValueAtTime(1.8, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+        osc.start(now); osc.stop(now + 0.4);
+        // 高频电弧噪声
+        playNoise(0.5, 'highpass', 5000, 8000);
+        // 低通余震
+        setTimeout(() => playNoise(0.4, 'lowpass', 1200, 60), 150);
+        // 3次雷击撞击音(间隔0.25s)
+        for (let i = 0; i < 3; i++) {
+          setTimeout(() => {
+            const o = ctx.createOscillator(); const g = ctx.createGain();
+            o.connect(g); g.connect(ctx.destination);
+            o.type = 'sine'; o.frequency.setValueAtTime(220 + i * 40, ctx.currentTime);
+            o.frequency.exponentialRampToValueAtTime(40, ctx.currentTime + 0.1);
+            g.gain.setValueAtTime(0.7 - i * 0.15, ctx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
+            o.start(ctx.currentTime); o.stop(ctx.currentTime + 0.15);
+            // 白蓝色闪光伴音
+            const buf = ctx.createBuffer(1, ctx.sampleRate * 0.08, ctx.sampleRate);
+            const data = buf.getChannelData(0);
+            for (let j = 0; j < buf.length; j++) data[j] = Math.random() * 2 - 1;
+            const noise = ctx.createBufferSource(); noise.buffer = buf;
+            const filter = ctx.createBiquadFilter(); filter.type = 'highpass';
+            filter.frequency.setValueAtTime(6000, ctx.currentTime);
+            const ng = ctx.createGain(); ng.gain.setValueAtTime(0.6, ctx.currentTime);
+            ng.gain.exponentialRampToValueAtTime(0, ctx.currentTime + 0.1);
+            noise.connect(filter); filter.connect(ng); ng.connect(ctx.destination);
+            noise.start(ctx.currentTime); noise.stop(ctx.currentTime + 0.1);
+          }, i * 250);
+        }
+      }
+    } else if (type === 'miss') { // 🩸 内伤 (心脏停跳)
+      osc.type = 'sine'; osc.frequency.setValueAtTime(60, now); osc.frequency.exponentialRampToValueAtTime(10, now + 0.4);
+      gain.gain.setValueAtTime(1.5, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4); osc.start(now); osc.stop(now + 0.4);
+      playNoise(0.3, 'lowpass', 150, 30);
+    } else if (type === 'rankup') {
+      // 中国风五声音阶上行：宫商角徵羽 (C D E G A) + 高八度收尾
+      const pentatonic = param === 'gold'
+        ? [261.6, 293.7, 329.6, 392, 440, 523.3, 659.3, 1046.5]  // 金：两个八度
+        : param === 'silver'
+        ? [261.6, 293.7, 329.6, 392, 440, 523.3, 659.3]           // 银：七音
+        : [261.6, 293.7, 329.6, 392, 440, 523.3];                  // 铜：六音
+      const stepDur = param === 'gold' ? 0.12 : 0.14;
+      pentatonic.forEach((freq, i) => {
+        const o = ctx.createOscillator(); const g = ctx.createGain();
+        o.connect(g); g.connect(ctx.destination);
+        o.type = 'triangle'; o.frequency.setValueAtTime(freq, now + i * stepDur);
+        const vol = i === pentatonic.length - 1 ? 1.2 : 0.6;
+        g.gain.setValueAtTime(0, now + i * stepDur);
+        g.gain.linearRampToValueAtTime(vol, now + i * stepDur + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.01, now + i * stepDur + stepDur * 1.5);
+        o.start(now + i * stepDur); o.stop(now + i * stepDur + stepDur * 2);
+      });
+      // 最后加一个钟鸣余韵
+      const bellFreq = param === 'gold' ? 1046.5 : param === 'silver' ? 659.3 : 523.3;
+      const bo = ctx.createOscillator(); const bg = ctx.createGain();
+      bo.connect(bg); bg.connect(ctx.destination);
+      bo.type = 'sine'; bo.frequency.setValueAtTime(bellFreq, now + pentatonic.length * stepDur);
+      bg.gain.setValueAtTime(1.5, now + pentatonic.length * stepDur);
+      bg.gain.exponentialRampToValueAtTime(0.01, now + pentatonic.length * stepDur + 1.5);
+      bo.start(now + pentatonic.length * stepDur); bo.stop(now + pentatonic.length * stepDur + 2);
+      osc.start(now); osc.stop(now + 0.01); // 消耗掉主 osc
+    } else if (type === 'hpburst') { // ❤ 获胜膨胀音效
+      osc.type = 'sine'; osc.frequency.setValueAtTime(600, now); osc.frequency.exponentialRampToValueAtTime(1200, now + 0.15);
+      gain.gain.setValueAtTime(0.8, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+      osc.start(now); osc.stop(now + 0.3);
+      playNoise(0.15, 'highpass', 3000, 6000);
+    } else if (type === 'revive') { // 再起复活音效
+      osc.type = 'sine'; osc.frequency.setValueAtTime(200, now); osc.frequency.exponentialRampToValueAtTime(800, now + 0.3);
+      gain.gain.setValueAtTime(0, now); gain.gain.linearRampToValueAtTime(1, now + 0.05);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.6);
+      osc.start(now); osc.stop(now + 0.6);
+      playNoise(0.4, 'bandpass', 1000, 2000);
+    }
+  } catch (e) { console.error('Audio play failed', e); }
+};
+
+// --- CSS 极致无缝布局与物理动效 + 卡通中国风美化 ---
+const customStyles = `
+  :root {
+    --color-zhusha: #C93756;
+    --color-dianqing: #177CB0;
+    --color-zhulv: #789262;
+    --color-jinghuang: #F0C239;
+    --color-mohei: #2C2C2C;
+    --color-xuanzhi: #F8F4E6;
+  }
+
+  body { background: #000; overflow: hidden; margin: 0; font-family: 'Noto Serif SC', serif; }
+  .font-zhi { font-family: 'Zhi Mang Xing', cursive; }
+
+  /* 无缝版面与按钮 */
+  .no-gap-container { display: flex; width: 100%; height: 100%; position: relative; z-index: 10; }
+  .half-card {
+    width: 50%; height: 100%; position: relative; overflow: hidden;
+    transition: background-color 0.5s;
+  }
+
+  /* 印章风格按钮 */
+  .btn-switch {
+    border: 6px solid var(--color-mohei); border-radius: 50%;
+    box-shadow: 0 8px 0 var(--color-mohei), inset 0 2px 4px rgba(255,255,255,0.3);
+    transition: all 0.1s cubic-bezier(0.4, 0, 0.2, 1); font-weight: 900;
+    position: relative; overflow: hidden;
+  }
+  .btn-switch::before {
+    content: ''; position: absolute; inset: 0;
+    background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.2), transparent 60%);
+    pointer-events: none;
+  }
+  .btn-switch:active { transform: translateY(8px) scale(0.98); box-shadow: 0 0 0 var(--color-mohei); }
+  .btn-switch:disabled { opacity: 0.7; transform: translateY(8px); box-shadow: 0 0 0 var(--color-mohei); cursor: not-allowed; }
+
+  /* 飘带式战利品 */
+  .trophy-band {
+    position: absolute; top: 0; height: 100%; border-right: 6px solid rgba(44,44,44,0.3);
+    box-shadow: 10px 0 20px rgba(0,0,0,0.3); transition: left 0.3s;
+    background: linear-gradient(180deg, transparent 0%, rgba(255,255,255,0.1) 50%, transparent 100%);
+    animation: ribbonWave 3s ease-in-out infinite;
+  }
+  @keyframes ribbonWave {
+    0%, 100% { transform: skewY(0deg); }
+    50% { transform: skewY(1deg); }
+  }
+  .half-card-right .trophy-band {
+    border-right: none; border-left: 6px solid rgba(44,44,44,0.3);
+    box-shadow: -10px 0 20px rgba(0,0,0,0.3);
+  }
+
+  /* === Mario风格背景主题 === */
+  .bg-mario-sky {
+    background: linear-gradient(180deg, 
+      #87CEEB 0%, 
+      #87CEEB 70%, 
+      #90EE90 70%, 
+      #7FBF7F 100%
+    );
+    position: relative;
+    overflow: hidden;
+  }
+  
+  /* 草地纹理 */
+  .bg-mario-sky::after {
+    content: ''; position: absolute; bottom: 0; left: 0; right: 0;
+    height: 30%; background: 
+      linear-gradient(90deg, 
+        #7FBF7F 0%, #90EE90 15%, #7FBF7F 30%, 
+        #8BC68B 45%, #90EE90 60%, #7FBF7F 75%, 
+        #8BC68B 90%, #90EE90 100%
+      );
+    background-size: 60px 20px;
+    image-rendering: pixelated;
+    z-index: -1;
+  }
+  
+  /* 白云 */
+  .mario-cloud {
+    position: absolute; pointer-events: none;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
+    z-index: 0;
+  }
+  .mario-cloud::before { /* 云体 */
+    content: ''; position: absolute; 
+    width: 60px; height: 24px;
+    background: 
+      radial-gradient(circle 20px at 15px 8px, #fff 100%, transparent 100%),
+      radial-gradient(circle 24px at 30px 6px, #fff 100%, transparent 100%),
+      radial-gradient(circle 20px at 50px 8px, #fff 100%, transparent 100%);
+    background-size: 100% 100%;
+    background-position: 0 0;
+  }
+  
+  /* 远处山峦 */
+  .mario-mountain {
+    position: absolute; bottom: 30%; pointer-events: none;
+    opacity: 0.3; filter: blur(2px);
+  }
+  .mario-mountain::before {
+    content: ''; position: absolute;
+    width: 0; height: 0;
+    border-left: 40px solid transparent;
+    border-right: 40px solid transparent;
+    border-bottom: 60px solid #6B8E23;
+  }
+
+  /* 血量显示 - 用♥表示 */
+  .hp-display {
+    position: absolute; top-[4vh] right-[3vh]; z-index: 50;
+    display: flex; gap: 4px; font-size: 3vh;
+    filter: drop-shadow(0 0 8px rgba(201,55,86,0.7));
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+  }
+  .hp-display span { color: #C93756; font-weight: bold; }
+  
+  /* 等级外框 */
+  .card-rank-bronze { border: 8px solid #CD7F32; box-shadow: 0 0 20px rgba(205, 127, 50, 0.4), inset 0 0 12px rgba(205, 127, 50, 0.2); }
+  .card-rank-silver { border: 8px solid #C0C0C0; box-shadow: 0 0 25px rgba(192, 192, 192, 0.5), inset 0 0 12px rgba(192, 192, 192, 0.3); }
+  .card-rank-gold { border: 8px solid #FFD700; box-shadow: 0 0 30px rgba(255, 215, 0, 0.6), inset 0 0 12px rgba(255, 215, 0, 0.4); }
+  
+  /* 擂主标记 */
+  .champion-badge {
+    position: absolute; top-4 w-16 h-16 z-40;
+    background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.9), rgba(201,55,86,1) 70%);
+    border: 4px solid #2C2C2C;
+    border-radius: 999px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 8vh; font-weight: black; color: #C93756;
+    text-shadow: 2px 2px 0 #FFD700, -2px -2px 0 #789262;
+    box-shadow: 0 0 30px rgba(201,55,86,0.7), inset 0 2px 4px rgba(255,255,255,0.4);
+    z-index: 45;
+  }
+  .champion-badge::after { content: '擂'; }
+  .champion-badge-left { left: 12px; }
+  .champion-badge-right { right: 12px; }
+  
+  /* 死亡时半区置灰覆盖 */
+  .half-card.dead-overlay {
+    filter: grayscale(1) brightness(0.5);
+  }
+  .half-card.dead-overlay::before {
+    content: ''; position: absolute; inset: 0; z-index: 100;
+    background: rgba(0,0,0,0.4);
+    pointer-events: none;
+  }
+
+  /* 祥云飘动 */
+  .cloud-deco {
+    position: absolute; pointer-events: none; z-index: 1;
+    animation: cloudDrift 30s linear infinite;
+    opacity: 0.3; filter: blur(1px);
+  }
+  @keyframes cloudDrift {
+    0% { transform: translateX(-10%); }
+    100% { transform: translateX(110%); }
+  }
+
+  /* 竹叶飘落 */
+  @keyframes leafFall {
+    0% { transform: translateY(0) rotate(0deg); opacity: 0.6; }
+    50% { transform: translateY(50vh) translateX(20px) rotate(180deg); opacity: 0.4; }
+    100% { transform: translateY(100vh) translateX(-20px) rotate(360deg); opacity: 0; }
+  }
+
+  /* 雪花飘落 */
+  @keyframes snowFall {
+    0% { transform: translateY(0) translateX(0) rotate(0deg); opacity: 0.6; }
+    50% { transform: translateY(50vh) translateX(30px) rotate(180deg); opacity: 0.5; }
+    100% { transform: translateY(100vh) translateX(-30px) rotate(360deg); opacity: 0; }
+  }
+
+  /* 按钮脉冲发光 */
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 8px 0 #2C2C2C, inset 0 2px 4px rgba(255,255,255,0.5), 0 0 30px rgba(240,194,57,0.5); }
+    50% { box-shadow: 0 8px 0 #2C2C2C, inset 0 2px 4px rgba(255,255,255,0.5), 0 0 50px rgba(240,194,57,0.8); }
+  }
+
+  /* === 动漫大招切镜 (Ultimate Cut-in) - 子弹时间效果 === */
+  .cutin-mask {
+    position: absolute; inset: 0; z-index: 300;
+    background: transparent;
+    backdrop-filter: none;
+    display: flex; align-items: center; justify-content: center; 
+    overflow: hidden;
+  }
+  
+  /* 子弹时间效果 - 屏幕边缘渐进式暗化 */
+  .cutin-mask::before {
+    content: ''; position: absolute; inset: 0; z-index: 1;
+    background: radial-gradient(ellipse at center, transparent 10%, rgba(0,0,0,0.3) 50%, rgba(0,0,0,0.6) 100%);
+    animation: bulletTimeVignette 1.5s cubic-bezier(0.3, 0.7, 0.3, 1) forwards;
+  }
+  @keyframes bulletTimeVignette {
+    0% { opacity: 0; }
+    20% { opacity: 1; }
+    70% { opacity: 1; }
+    100% { opacity: 0; }
+  }
+  
+  .cutin-stripe {
+    width: 100vw; height: 100vh; z-index: 2;
+    background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.1) 20%, rgba(255,255,255,0.15) 50%, rgba(255,255,255,0.1) 80%, transparent 100%);
+    animation: bulletTimeFlash 1.5s cubic-bezier(0.1, 0.9, 0.2, 1) forwards;
+    display: flex; align-items: center; justify-content: center;
+    position: relative;
+    border: none; box-shadow: none;
+  }
+  @keyframes bulletTimeFlash {
+    0% { opacity: 0; }
+    15% { opacity: 0.8; }
+    40%, 60% { opacity: 0.4; }
+    100% { opacity: 0; }
+  }
+  
+  .cutin-text {
+    position: relative; z-index: 3;
+    font-size: 24vh; font-family: 'Zhi Mang Xing', cursive; font-weight: 900;
+    background: linear-gradient(135deg, #FF4444 0%, #C93756 25%, #FFD700 50%, #C93756 75%, #FF4444 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-shadow: none;
+    filter: drop-shadow(0 0 40px #C93756) drop-shadow(0 0 80px rgba(255,215,0,0.5)) drop-shadow(4px 4px 8px rgba(0,0,0,0.8));
+    animation: textCutinNew 1.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+    transform-origin: center;
+    letter-spacing: 0.1em;
+    text-stroke: 2px #2C2C2C;
+    paint-order: stroke fill;
+  }
+  @keyframes textCutinNew {
+    0% { transform: scale(0.3) rotate(-20deg) translateY(100px); opacity: 0; filter: drop-shadow(0 0 0px #C93756); }
+    12% { transform: scale(1.15) rotate(5deg) translateY(-10px); opacity: 1; filter: drop-shadow(0 0 60px #C93756) drop-shadow(0 0 120px rgba(255,215,0,0.6)); }
+    35%, 65% { transform: scale(1) rotate(0deg) translateY(0px); opacity: 1; filter: drop-shadow(0 0 40px #C93756) drop-shadow(0 0 80px rgba(255,215,0,0.5)); }
+    100% { transform: scale(0.7) rotate(15deg) translateY(80px); opacity: 0; filter: drop-shadow(0 0 20px #C93756); }
+  }
+  .cutin-text {
+    font-size: 22vh; font-family: 'Zhi Mang Xing'; font-weight: black;
+    color: var(--color-zhusha);
+    text-shadow: 3px 3px 0 var(--color-jinghuang), 6px 6px 0 rgba(0,0,0,0.3);
+    animation: textSlide 1s cubic-bezier(0.1, 0.9, 0.2, 1) forwards;
+    filter: drop-shadow(0 0 20px rgba(201, 55, 86, 0.6));
+  }
+  @keyframes textSlide {
+    0% { transform: translateX(30vw) scale(0.8); opacity: 0; }
+    20%, 80% { transform: translateX(0) scale(1); opacity: 1; }
+    100% { transform: translateX(-40vw) scale(0.8); opacity: 0; }
+  }
+
+  /* === VFX 动画层 (严格限制在半屏内) - 增强版 === */
+  .vfx-layer { position: absolute; inset: 0; pointer-events: none; z-index: 50; overflow: hidden; }
+
+  /* 🗡️ 一剑开天门 - 像素宝剑 + 纵向劈砍 */
+  .pixel-sword {
+    position: absolute; top: -50%; left: 50%; transform: translateX(-50%);
+    width: 60px; height: 200px; animation: swordFall 0.5s ease-in forwards;
+  }
+  .pixel-sword::before {
+    content: ''; position: absolute; width: 100%; height: 100%;
+    background: linear-gradient(90deg, transparent 20%, #F0C239 20%, #FFD700 40%, #F0C239 60%, transparent 80%);
+    background-size: 8px 8px; image-rendering: pixelated;
+    box-shadow: 0 0 20px rgba(240, 194, 57, 0.8), 0 0 40px rgba(255, 215, 0, 0.5);
+  }
+  .pixel-sword::after { /* 剑柄 */
+    content: ''; position: absolute; bottom: -30px; left: 50%; transform: translateX(-50%);
+    width: 20px; height: 30px;
+    background: linear-gradient(90deg, #8B4513 25%, #D2691E 50%, #8B4513 75%);
+    background-size: 4px 4px; image-rendering: pixelated;
+  }
+  @keyframes swordFall {
+    0% { top: -50%; opacity: 1; }
+    100% { top: 80%; opacity: 1; }
+  }
+  .sword-slash-line {
+    position: absolute; inset: 0;
+    background: linear-gradient(down, transparent 48%, rgba(255,255,255,0.95) 49%, #F0C239 50%, rgba(255,255,255,0.95) 51%, transparent 52%);
+    animation: slashVertical 0.3s ease-out forwards;
+  }
+  @keyframes slashVertical {
+    0% { clip-path: polygon(50% 0%, 50% 0%, 55% 100%, 45% 100%); opacity: 1; filter: brightness(3) drop-shadow(0 0 30px #F0C239); }
+    100% { clip-path: polygon(45% 0%, 55% 0%, 55% 100%, 45% 100%); opacity: 0.5; filter: brightness(1); }
+  }
+
+  /* 一剑穿过后的分裂效果 */
+  .vfx-slash-hit {
+    position: absolute; inset: 0;
+    background: linear-gradient(180deg, rgba(255,255,255,0.8) 49%, transparent 50%, transparent 51%, rgba(255,255,255,0.8) 52%);
+    animation: slashSplit 0.4s ease-out forwards;
+  }
+  @keyframes slashSplit {
+    0% { clip-path: polygon(0% 50%, 100% 50%, 100% 50%, 0% 50%); opacity: 1; }
+    50% { opacity: 1; }
+    100% { clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%); opacity: 0; }
+  }
+
+  /* ⛰️ 泰山压顶 - 我的世界风格像素山体 + 停留 + 压扁 */
+  .minecraft-mountain {
+    position: absolute; top: -60%; left: 50%; transform: translateX(-50%);
+    width: 280px; height: 280px; animation: mountainFall 0.8s ease-in forwards;
+    z-index: 99; filter: drop-shadow(0 10px 30px rgba(0,0,0,0.6));
+  }
+  .minecraft-mountain::before { /* 山顶 */
+    content: ''; position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+    width: 0; height: 0;
+    border-left: 65px solid transparent; border-right: 65px solid transparent;
+    border-bottom: 80px solid #704214;
+    filter: drop-shadow(0 4px 8px rgba(0,0,0,0.5));
+    z-index: 2;
+  }
+  .minecraft-mountain::after { /* 山体主块 */
+    content: ''; position: absolute; top: 70px; left: -20px; right: -20px;
+    width: 320px; height: 220px;
+    background: 
+      linear-gradient(90deg, #4a3010 0%, #6B3410 20%, #8B4513 40%, #964B00 60%, #8B4513 80%, #6B3410 100%),
+      linear-gradient(180deg, #8B4513 0%, #704214 25%, #5a3410 50%, #4a2810 75%, #3a2010 100%);
+    background-size: 16px 16px, 32px 32px;
+    image-rendering: pixelated;
+    box-shadow: inset 0 8px 16px rgba(0,0,0,0.6), inset -8px 0 16px rgba(0,0,0,0.5);
+    z-index: 1;
+  }
+  @keyframes mountainFall {
+    0% { top: -80%; opacity: 0; transform: translateX(-50%) scaleY(0.8); }
+    20% { top: 10%; opacity: 1; transform: translateX(-50%) scaleY(1.1); }
+    50% { top: 5%; opacity: 1; transform: translateX(-50%) scaleY(1); }
+    75% { top: 8%; opacity: 1; transform: translateX(-50%) scaleY(0.95); }
+    100% { top: 50%; opacity: 0; transform: translateX(-50%) scaleY(0.5); }
+  }
+
+  /* 山体压扁卡片且完全遮盖 */
+  .mountain-pressure {
+    position: absolute; inset: 0; z-index: 100;
+    animation: mountainPressure 0.8s ease-in-out forwards;
+    background: linear-gradient(180deg, rgba(80,60,40,0.9) 0%, rgba(100,80,50,0.95) 50%, rgba(60,45,30,0.9) 100%);
+  }
+  @keyframes mountainPressure {
+    0% { transform: scaleY(1); opacity: 0; filter: blur(0px) brightness(1); }
+    15% { transform: scaleY(0.8); opacity: 0.3; filter: blur(4px) brightness(0.8); }
+    45% { transform: scaleY(0.2); opacity: 1; filter: blur(0px) brightness(0.5); }
+    70% { transform: scaleY(0.15); opacity: 1; filter: blur(0px) brightness(0.4); }
+    85% { transform: scaleY(0.2); opacity: 0.8; filter: blur(2px) brightness(0.5); }
+    100% { transform: scaleY(0.1); opacity: 0; filter: blur(0px) brightness(0); }
+  }
+
+  /* 🔨 碎空锤 - 紫色能量锤 + 旋转飞出 */
+  .energy-hammer {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    width: 80px; height: 80px; animation: hammerStrike 0.6s ease-out forwards;
+  }
+  .energy-hammer::before { /* 锤头 */
+    content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 20px;
+    background: radial-gradient(circle at 40% 40%, rgba(255,255,255,0.9), #9C27B0 60%, #7B1FA2 100%);
+    border-radius: 8px;
+    box-shadow: 0 0 30px #9C27B0, inset -4px -4px 8px rgba(0,0,0,0.3), inset 4px 4px 8px rgba(255,255,255,0.4);
+  }
+  .energy-hammer::after { /* 锤柄 */
+    content: ''; position: absolute; bottom: 0; left: 50%; transform: translateX(-50%);
+    width: 12px; height: 40px;
+    background: linear-gradient(90deg, #424242 0%, #616161 50%, #424242 100%);
+    border-radius: 6px;
+  }
+  @keyframes hammerStrike {
+    0% { transform: translate(-50%, -50%) scale(1.2) rotate(0deg); opacity: 1; }
+    15% { transform: translate(-50%, -50%) scale(1) rotate(0deg); opacity: 1; }
+    100% { transform: translate(calc(-50% + 100vw), calc(-50% - 100vh)) scale(0.3) rotate(720deg); opacity: 0; }
+  }
+
+  /* 🔨 锤击冲击波 */
+  .hammer-impact { position: absolute; inset: 0; animation: hammerWave 0.3s ease-out forwards; }
+  @keyframes hammerWave {
+    0% { transform: scale(0.8); opacity: 1; filter: brightness(3); }
+    100% { transform: scale(1.3); opacity: 0; filter: brightness(1); }
+  }
+
+  /* ☄️ 火弩箭 - 5条像素火箭 + 穿孔效果 */
+  .pixel-rocket { position: absolute; animation: rocketShoot 0.5s linear forwards; }
+  .pixel-rocket::before { /* 火箭头 */
+    content: ''; position: absolute; top: -8px; left: 50%; transform: translateX(-50%);
+    width: 0; height: 0;
+    border-left: 6px solid transparent; border-right: 6px solid transparent;
+    border-bottom: 12px solid #FF6B35;
+    filter: drop-shadow(0 0 8px #EA5514);
+  }
+  .pixel-rocket::after { /* 火箭身体 */
+    content: ''; position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+    width: 12px; height: 30px;
+    background: linear-gradient(90deg, #FFD700 25%, #FFA500 50%, #FFD700 75%);
+    background-size: 4px 4px;
+    box-shadow: 0 0 15px #EA5514, inset 0 2px 4px rgba(255,255,255,0.3);
+  }
+  @keyframes rocketShoot { 0% { bottom: 0%; opacity: 1; } 100% { bottom: 100%; opacity: 0; } }
+
+  /* 火箭着陆穿孔 */
+  .impact-hole {
+    position: absolute; border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,255,255,0.9) 20%, rgba(255,165,0,0.6) 50%, rgba(255,102,52,0.3) 100%);
+    animation: pixelHoleForm 0.3s ease-out forwards;
+  }
+  @keyframes pixelHoleForm {
+    0% { transform: scale(0); opacity: 1; filter: brightness(3); }
+    100% { transform: scale(1); opacity: 1; filter: brightness(1); }
+  }
+
+  /* 穿孔白光射线 */
+  .hole-ray { position: absolute; animation: raysRadiate 0.3s ease-out forwards; }
+  @keyframes raysRadiate {
+    0% { clip-path: circle(0%); opacity: 1; }
+    100% { clip-path: circle(200%); opacity: 0; }
+  }
+
+  /* 掉血脉冲动效 - 受击后掉血的视觉反馈 */
+  .hp-loss-pulse {
+    animation: hpLossPulse 0.6s ease-out forwards;
+  }
+  @keyframes hpLossPulse {
+    0% { transform: scale(1); filter: brightness(1.3) drop-shadow(0 0 20px rgba(201,55,86,0.5)); }
+    25% { transform: scale(0.97); filter: brightness(1.5); }
+    50% { transform: scale(0.95); filter: brightness(1.2) drop-shadow(0 0 30px rgba(201,55,86,0.7)); }
+    75% { transform: scale(0.98); filter: brightness(1.1); }
+    100% { transform: scale(1); filter: brightness(1) drop-shadow(0 0 10px rgba(201,55,86,0.3)); }
+  }
+
+  /* 死亡出卡特效 - 浅灰置灰+向下滑出 */
+  .death-exit-animation {
+    animation: deathExitSlide 0.8s cubic-bezier(0.4, 0, 1, 1) forwards;
+  }
+  @keyframes deathExitSlide {
+    0% { transform: translateY(0) scale(1); opacity: 1; filter: brightness(1); }
+    20% { filter: brightness(0.8) grayscale(0.3); }
+    40% { filter: brightness(0.7) grayscale(0.6); }
+    60% { transform: translateY(5vh); filter: brightness(0.6) grayscale(0.8); }
+    85% { transform: translateY(80vh) scale(0.8); opacity: 0.3; filter: brightness(0.3) grayscale(1); }
+    100% { transform: translateY(120vh) scale(0.5); opacity: 0; filter: brightness(0) grayscale(1); }
+  }
+
+  /* ⚡ 雷鸣斩 - 3颗天雷球 + 不规则裂纹 */
+  .thunder-ball {
+    position: absolute; top: -50%; border-radius: 50%;
+    width: 40px; height: 40px;
+    background: radial-gradient(circle at 35% 35%, rgba(255,255,255,0.95), #9C27B0 50%, #7B1FA2 100%);
+    box-shadow: 0 0 25px #9C27B0, 0 0 50px rgba(156, 39, 176, 0.5);
+    animation: thunderFall 0.6s ease-in forwards;
+  }
+  .thunder-ball::before { /* 闪电纹 */
+    content: ''; position: absolute; inset: 0;
+    background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M50 10 L40 35 M50 10 L60 35 M40 35 L45 65 M60 35 L55 65 M45 65 L50 90 M55 65 L50 90" stroke="%23fff" stroke-width="2" stroke-linecap="round"/></svg>');
+    background-size: 100% 100%;
+    border-radius: 50%;
+    filter: drop-shadow(0 0 8px #fff);
+  }
+  @keyframes thunderFall { 0% { top: -50%; opacity: 1; } 100% { top: 100%; opacity: 0.3; } }
+
+  /* 碎裂裂纹 */
+  .crack-lines { position: absolute; inset: 0; animation: crackForm 0.4s ease-out forwards; }
+  @keyframes crackForm {
+    0% { stroke-dasharray: 0, 1000; opacity: 0; }
+    50% { opacity: 1; }
+    100% { stroke-dasharray: 1000, 1000; opacity: 0.4; }
+  }
+
+  /* 镜面碎片效果 */
+  .mirror-shatter {
+    position: absolute; inset: 0;
+    background: 
+      linear-gradient(45deg, transparent 45%, rgba(173, 216, 230, 0.6) 48%, transparent 51%),
+      linear-gradient(-45deg, transparent 45%, rgba(173, 216, 230, 0.6) 48%, transparent 51%),
+      linear-gradient(30deg, transparent 45%, rgba(173, 216, 230, 0.4) 48%, transparent 51%);
+    background-size: 80px 80px, 100px 100px, 60px 60px;
+    animation: shatterCrack 0.5s ease-out forwards;
+  }
+  @keyframes shatterCrack {
+    0% { transform: scale(0.9); opacity: 0; }
+    50% { opacity: 1; }
+    100% { transform: scale(1.2); opacity: 0; }
+  }
+
+  /* 🩸 内伤 - 血色收缩 */
+  .vfx-injury {
+    background: radial-gradient(circle, rgba(44,44,44,0.8) 10%, #7f1d1d 40%, transparent 70%);
+    animation: implodeBlood 0.8s ease-in forwards; mix-blend-mode: multiply;
+  }
+  @keyframes implodeBlood {
+    0% { transform: scale(2); opacity: 0; }
+    20% { transform: scale(1.2); opacity: 1; }
+    100% { transform: scale(0.5); opacity: 0; }
+  }
+
+  /* === 全屏人物卡物理形变连动 - 增强版 === */
+
+  /* 🗡️ 一剑错位闪白 - 纵向分裂效果 */
+  .react-slash { animation: reactSlashNew 0.6s forwards; }
+  @keyframes reactSlashNew {
+    0%, 100% { transform: scaleY(1); filter: brightness(1); clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%); }
+    20% { filter: brightness(3) drop-shadow(0 0 30px #F0C239); clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%); }
+    40% { transform: scaleY(0.98); filter: brightness(2.5); }
+    50% { 
+      clip-path: polygon(0% 0%, 100% 0%, 100% 48%, 0% 48%, 0% 52%, 100% 52%, 100% 100%, 0% 100%);
+      transform: translateY(0);
+      filter: brightness(2);
+    }
+    65% { 
+      clip-path: polygon(0% 0%, 100% 0%, 100% 48%, 0% 48%, 0% 52%, 100% 52%, 100% 100%, 0% 100%);
+      transform: translateY(0);
+    }
+    75%, 100% {
+      clip-path: polygon(0% 0%, 100% 0%, 100% 0%, 0% 0%, 0% 100%, 100% 100%, 100% 100%, 0% 100%);
+      transform: translateY(0);
+      filter: brightness(1);
+    }
+  }
+
+  /* ⛰️ 泰山压顶 - 石头堆积埋没（卡片不变形） */
+  .react-mountain { animation: none !important; transform: scale(1) !important; filter: none !important; }
+
+  /* 🔨 碎空 - 锤子砸下 + 中心锤痕 + 四周碎裂（卡片不变形） */
+  .react-shatter-fx { animation: none !important; transform: scale(1) !important; filter: none !important; }
+
+  /* ☄️ 火弩箭 - 射穿5个火洞 + 燃烧蔓延（卡片不变形） */
+  .react-burn { animation: none !important; filter: none !important; transform: scale(1) !important; }
+
+  /* ☄️ 火弩箭：施法方后坐力 - 5连发射 */
+  .react-cast-shake { animation: castShakeRocket 0.5s forwards; }
+  @keyframes castShakeRocket {
+    0%, 100% { transform: translate(0,0) rotate(0deg); }
+    10%, 30%, 50%, 70%, 90% { transform: translate(0, -12px) rotate(-1deg); }
+    20%, 40%, 60%, 80% { transform: translate(0, 6px) rotate(1deg); }
+  }
+
+  /* ⚡ 雷鸣 - 3个雷火球下落 + 抖动电击闪烁（卡片不变形） */
+  .react-strobe { animation: cardShakeElectric 0.6s ease-in-out forwards; }
+  @keyframes cardShakeElectric {
+    0%, 100% { transform: scale(1); filter: brightness(1) invert(0); }
+    10%, 20%, 30% { transform: translateX(-3px) translateY(-3px); filter: brightness(1.3) invert(0.2); }
+    15%, 25%, 35% { transform: translateX(3px) translateY(3px); filter: brightness(1.3) invert(0.2); }
+    50% { filter: brightness(0.8); }
+    100% { transform: scale(1); filter: brightness(1) invert(0); }
+  }
+
+  /* 🩸 内伤失色收缩 - 增强痛苦感 */
+  .react-injury { animation: reactInjury 0.8s forwards; }
+  @keyframes reactInjury {
+    0%, 100% { transform: scale(1); filter: grayscale(0); }
+    20% { transform: scale(0.8); filter: grayscale(1) contrast(2.5) brightness(0.7); }
+    40%, 60% { transform: scale(0.82) rotate(-4deg); filter: grayscale(1) contrast(2); }
+    50%, 70% { transform: scale(0.82) rotate(4deg); filter: grayscale(1) contrast(2); }
+  }
+
+  /* 呼吸动画 - 准备阶段 */
+  .card-breathing {
+    animation: cardBreath 3s ease-in-out infinite;
+  }
+  @keyframes cardBreath {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.02); }
+  }
+
+  /* 其它 */
+  .animate-pop { animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+  @keyframes popIn { 0% { transform: scale(0.8) translateY(20px); opacity: 0; } 100% { transform: scale(1) translateY(0); opacity: 1; } }
+
+  /* ❤ 获胜膨胀特效 */
+  .hp-burst { animation: hpBurst 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+  @keyframes hpBurst {
+    0% { transform: scale(1); }
+    40% { transform: scale(1.8); filter: drop-shadow(0 0 12px rgba(201,55,86,1)); }
+    70% { transform: scale(0.9); }
+    100% { transform: scale(1); }
+  }
+
+  /* 再起复活特效 */
+  .revive-flash { animation: reviveFlash 0.8s ease-out forwards; }
+  @keyframes reviveFlash {
+    0% { opacity: 0; transform: scale(0.5); filter: brightness(3) saturate(0); }
+    30% { opacity: 1; transform: scale(1.1); filter: brightness(2) saturate(2); }
+    60% { transform: scale(0.95); filter: brightness(1.5); }
+    100% { transform: scale(1); filter: brightness(1); opacity: 1; }
+  }
+
+  /* 段位升级全屏覆盖层 */
+  .rankup-overlay {
+    position: absolute; inset: 0; z-index: 500;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    pointer-events: none;
+  }
+  .rankup-card {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    animation: rankupSequence 2.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+  }
+  @keyframes rankupSequence {
+    0%   { transform: scale(0.2) translateY(30vh); opacity: 0; }
+    15%  { transform: scale(1.3) translateY(0); opacity: 1; }
+    35%  { transform: scale(1.15); }
+    55%  { transform: scale(1.2); }
+    75%  { transform: scale(1.18); }
+    88%  { transform: scale(1.05) translateY(0); }
+    100% { transform: scale(1) translateY(0); opacity: 1; }
+  }
+  .rankup-frame-bronze { border: 10px solid #CD7F32; box-shadow: 0 0 40px rgba(205,127,50,0.8), inset 0 0 20px rgba(205,127,50,0.3), 0 0 80px rgba(205,127,50,0.4); }
+  .rankup-frame-silver  { border: 10px solid #C0C0C0; box-shadow: 0 0 40px rgba(192,192,192,0.9), inset 0 0 20px rgba(192,192,192,0.4), 0 0 80px rgba(192,192,192,0.5); }
+  .rankup-frame-gold    { border: 10px solid #FFD700; box-shadow: 0 0 60px rgba(255,215,0,1),   inset 0 0 30px rgba(255,215,0,0.5),   0 0 120px rgba(255,215,0,0.6); }
+
+  /* 撒花粒子 */
+  .confetti-container { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+  .confetti-piece {
+    position: absolute; width: 12px; height: 12px; border-radius: 2px;
+    animation: confettiFall linear forwards;
+  }
+  @keyframes confettiFall {
+    0%   { transform: translateY(-20px) rotate(0deg) scale(1); opacity: 1; }
+    80%  { opacity: 1; }
+    100% { transform: translateY(110vh) rotate(720deg) scale(0.5); opacity: 0; }
+  }
+
+  /* 擂主标记 */
+  .lei-badge {
+    position: absolute; top: 3vh; z-index: 60;
+    font-size: 5vh; font-weight: 900; color: #F8F4E6;
+    padding: 0.5vh 2vh; border-radius: 50%;
+    border: 4px solid #2C2C2C;
+    background: linear-gradient(135deg, #C93756 0%, #F0C239 100%);
+    box-shadow: 4px 4px 0 #2C2C2C, 0 0 20px rgba(240,194,57,0.6);
+    animation: leiBadgePulse 2s ease-in-out infinite;
+    font-family: 'Zhi Mang Xing', cursive;
+  }
+  @keyframes leiBadgePulse {
+    0%, 100% { box-shadow: 4px 4px 0 #2C2C2C, 0 0 20px rgba(240,194,57,0.6); }
+    50% { box-shadow: 4px 4px 0 #2C2C2C, 0 0 40px rgba(240,194,57,1); transform: scale(1.08); }
+  }
+
+  /* 段位外框（人物卡角落） */
+  .rank-frame {
+    position: absolute; inset: 0; pointer-events: none; z-index: 55;
+    border-radius: 0;
+  }
+  .rank-frame-bronze { box-shadow: inset 0 0 0 8px rgba(205,127,50,0.7), inset 0 0 30px rgba(205,127,50,0.2); }
+  .rank-frame-silver  { box-shadow: inset 0 0 0 8px rgba(192,192,192,0.8), inset 0 0 30px rgba(192,192,192,0.3); }
+  .rank-frame-gold    { box-shadow: inset 0 0 0 10px rgba(255,215,0,0.9),  inset 0 0 50px rgba(255,215,0,0.3); animation: goldFrameGlow 2s ease-in-out infinite; }
+  @keyframes goldFrameGlow {
+    0%, 100% { box-shadow: inset 0 0 0 10px rgba(255,215,0,0.9), inset 0 0 50px rgba(255,215,0,0.3); }
+    50% { box-shadow: inset 0 0 0 10px rgba(255,215,0,1), inset 0 0 80px rgba(255,215,0,0.5); }
+  }
+
+  /* ====== 新技能VFX动画库 ====== */
+
+  /* 🗡️ 一剑开天门 - 竖向裂纹扩大 */
+  .sword-crack-expand-container {
+    position: absolute; inset: 0; pointer-events: none;
+  }
+  .sword-crack-line {
+    position: absolute; left: 50%; top: 0; bottom: 0;
+    width: 6px; transform: translateX(-50%);
+    background: linear-gradient(180deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.9) 40%, rgba(255,255,255,0.9) 60%, rgba(255,255,255,0) 100%);
+    box-shadow: 0 0 20px rgba(240,194,57,0.8), inset 0 0 10px rgba(255,255,255,0.5);
+    animation: swordCrackExpand 0.4s ease-out forwards;
+    filter: brightness(2);
+  }
+  @keyframes swordCrackExpand {
+    0% { width: 2px; opacity: 1; box-shadow: 0 0 20px rgba(240,194,57,0.8); }
+    50% { width: 8px; opacity: 1; box-shadow: 0 0 30px rgba(240,194,57,1); }
+    100% { width: 12px; opacity: 0.7; box-shadow: 0 0 40px rgba(240,194,57,0.6); }
+  }
+
+  /* ⛰️ 泰山压顶 - 土块快速堆积完全覆盖 */
+  @keyframes dustBlockFall {
+    0% { bottom: 120%; opacity: 0; transform: translateY(0) rotate(0deg) scaleY(1) scaleX(1); }
+    15% { opacity: 1; }
+    50% { bottom: 20%; transform: translateY(0) rotate(-3deg) scaleY(0.95) scaleX(0.98); }
+    85% { bottom: 0%; opacity: 1; }
+    100% { bottom: -5%; opacity: 0.8; transform: translateY(10px) rotate(1deg) scaleY(0.9) scaleX(0.95); }
+  }
+
+  /* 🔨 碎空锤 - 中心凹印+向外扩散蓝色裂纹 */
+  .hammer-center-impact {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    width: 80px; height: 80px;
+    background: radial-gradient(circle at 30% 30%, rgba(100,150,255,0.3) 0%, rgba(50,100,200,0.4) 40%, rgba(20,50,150,0.2) 100%);
+    border: 3px solid rgba(100,180,255,0.6);
+    border-radius: 50%;
+    box-shadow: inset 0 8px 20px rgba(0,0,0,0.4), 0 0 30px rgba(100,180,255,0.5);
+    animation: hammerCrackPulse 0.5s ease-out forwards;
+  }
+  @keyframes hammerCrackPulse {
+    0% { width: 40px; height: 40px; opacity: 0; box-shadow: inset 0 4px 10px rgba(0,0,0,0.2), 0 0 10px rgba(100,180,255,0.3); }
+    50% { width: 100px; height: 100px; opacity: 1; box-shadow: inset 0 12px 30px rgba(0,0,0,0.5), 0 0 40px rgba(100,180,255,0.7); }
+    100% { width: 120px; height: 120px; opacity: 0.6; box-shadow: inset 0 8px 20px rgba(0,0,0,0.3), 0 0 50px rgba(100,180,255,0.4); }
+  }
+  
+  .hammer-crack-ray {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    animation: cracksRadiate 0.4s ease-out forwards;
+  }
+  @keyframes cracksRadiate {
+    0% { width: 100px; height: 100px; opacity: 0; }
+    30% { width: 200px; height: 200px; opacity: 1; }
+    100% { width: 300px; height: 300px; opacity: 0; }
+  }
+
+  @keyframes mountainShadowPress {
+    0% { opacity: 0; top: -40%; }
+    20% { opacity: 0.6; top: 20%; }
+    50% { opacity: 1; top: 10%; }
+    75% { opacity: 0.9; top: 15%; }
+    100% { opacity: 0; top: 30%; }
+  }
+
+  /* === 新建5大技能VFX动画库 === */
+  
+  /* 🗡️ 一剑开天门 - 宝剑贯穿 */
+  @keyframes swordPierceFall {
+    0% { top: -80px; opacity: 0; }
+    10% { opacity: 1; }
+    90% { top: 120%; opacity: 0.5; }
+    100% { top: 120%; opacity: 0; }
+  }
+  
+  @keyframes swordCrackExpandNew {
+    0% { width: 3px; opacity: 0; box-shadow: 0 0 10px rgba(255,215,0,0.4); }
+    20% { width: 6px; opacity: 1; }
+    50% { width: 12px; box-shadow: 0 0 40px rgba(255,215,0,1); }
+    100% { width: 16px; opacity: 0.8; box-shadow: 0 0 60px rgba(255,215,0,0.6); }
+  }
+  
+  @keyframes cardSplitLeft {
+    0% { transform: translateX(0); opacity: 1; }
+    100% { transform: translateX(-100%) skew(-5deg); opacity: 0; }
+  }
+  
+  @keyframes cardSplitRight {
+    0% { transform: translateX(0); opacity: 1; }
+    100% { transform: translateX(100%) skew(5deg); opacity: 0; }
+  }
+  
+  /* ⛰️ 泰山压顶 - 已有dustBlockFall */
+  
+  /* 🔨 碎空 - 锤子与碎裂 */
+  @keyframes hammerDropNewEffect {
+    0% { top: -40px; opacity: 0; }
+    15% { opacity: 1; }
+    60% { top: 50%; }
+    100% { top: 100%; opacity: 0; }
+  }
+  
+  @keyframes hammerImpactCircle {
+    0% { opacity: 0; }
+    20% { opacity: 1; }
+    100% { opacity: 0; }
+  }
+  
+  @keyframes hammerImpactExpand {
+    0% { width: 0px; height: 0px; opacity: 0; }
+    40% { width: 150px; height: 150px; opacity: 1; box-shadow: 0 0 50px rgba(123,104,238,0.8); }
+    100% { width: 200px; height: 200px; opacity: 0; box-shadow: 0 0 80px rgba(123,104,238,0.2); }
+  }
+  
+  @keyframes cracksRadiateIrregular {
+    0% { width: 80px; opacity: 0; }
+    30% { width: 120px; opacity: 1; }
+    100% { width: 160px; opacity: 0; }
+  }
+  
+  /* ☄️ 火弩箭 - 火箭、火洞、蔓延 */
+  @keyframes rocketPierceFall {
+    0% { top: -60px; opacity: 0; }
+    20% { opacity: 1; }
+    80% { top: 100%; opacity: 0.8; }
+    100% { top: 120%; opacity: 0; }
+  }
+  
+  @keyframes fireHoleBurn {
+    0% { width: 30px; height: 30px; opacity: 0; }
+    40% { width: 45px; height: 45px; opacity: 1; }
+    100% { width: 60px; height: 60px; opacity: 0.5; box-shadow: 0 0 40px rgba(255,140,0,0.4); }
+  }
+  
+  @keyframes flameSpreadNewEffect {
+    0% { clip-path: circle(0% at 50% 50%); opacity: 0; }
+    40% { clip-path: circle(40% at 50% 50%); opacity: 1; }
+    80% { clip-path: circle(80% at 50% 50%); opacity: 0.8; }
+    100% { clip-path: circle(100% at 50% 50%); opacity: 0.4; }
+  }
+  
+  /* ⚡ 雷鸣 - 雷火球 + 反色闪烁 */
+  @keyframes thunderBallFall {
+    0% { top: -50px; opacity: 0; }
+    20% { opacity: 1; }
+    95% { top: 110%; opacity: 0.2; }
+    100% { top: 120%; opacity: 0; }
+  }
+  
+  @keyframes cardInvertFlash {
+    0% { background: rgba(0,0,0,0); filter: invert(0); }
+    10% { filter: invert(0.4) brightness(1.3); }
+    25% { filter: invert(0.6) brightness(1.2); }
+    40% { filter: invert(0.5) brightness(1.1); }
+    100% { background: rgba(0,0,0,0); filter: invert(0); }
+  }
+
+  @keyframes pixelHoleForm {
+    0% { transform: scale(0); opacity: 1; filter: brightness(3); }
+    100% { transform: scale(1); opacity: 1; filter: brightness(1); }
+  }
+
+  /* ☄️ 火弩箭 - 火焰蔓延覆盖 */
+  .flame-spread {
+    position: absolute; inset: 0;
+    background: radial-gradient(circle at center, rgba(255,140,0,0.5) 0%, rgba(255,69,0,0.4) 40%, rgba(220,20,60,0.3) 100%);
+    animation: flameSpreadAnimation 0.6s ease-out forwards;
+  }
+  @keyframes flameSpreadAnimation {
+    0% { clip-path: circle(0% at 50% 50%); opacity: 0; }
+    40% { clip-path: circle(35% at 50% 50%); opacity: 1; }
+    80% { clip-path: circle(70% at 50% 50%); opacity: 0.8; }
+    100% { clip-path: circle(100% at 50% 50%); opacity: 0.5; }
+  }
+
+  /* ⚡ 雷鸣斩 - 3次冲击+电击着火 */
+  .electric-flash {
+    position: absolute; inset: 0;
+    background: linear-gradient(90deg, transparent 25%, rgba(100,150,255,0.4) 40%, rgba(100,150,255,0.4) 60%, transparent 75%);
+    animation: electricFlashPulse 0.15s ease-out forwards;
+  }
+  @keyframes electricFlashPulse {
+    0% { opacity: 0; filter: brightness(3); }
+    50% { opacity: 1; filter: brightness(2); }
+    100% { opacity: 0; filter: brightness(1); }
+  }
+
+  .electric-burn-animation {
+    position: absolute; inset: 0;
+    background: 
+      radial-gradient(ellipse 60% 40% at 30% 40%, rgba(255,200,0,0.3) 0%, transparent 50%),
+      radial-gradient(ellipse 40% 60% at 70% 60%, rgba(255,100,0,0.25) 0%, transparent 50%);
+    animation: electricBurnEffect 0.8s ease-in-out forwards;
+  }
+  @keyframes electricBurnEffect {
+    0% { opacity: 0; filter: hue-rotate(0deg) saturate(0.5); }
+    20% { opacity: 0.8; filter: hue-rotate(15deg) saturate(1.2); }
+    50% { opacity: 1; filter: hue-rotate(30deg) saturate(1.5); }
+    75% { opacity: 0.7; filter: hue-rotate(20deg) saturate(1.2); }
+    100% { opacity: 0; filter: hue-rotate(0deg) saturate(1); }
+  }
+
+  /* 分割线隐藏 - 取消显示 */
+  .divider-line { display: none !important; }
+  .divider-line-left { display: none !important; }
+  .divider-line-right { display: none !important; }
+
+  /* 血条 */
+  .hp-bar-track {
+    height: 14px; border-radius: 7px; overflow: hidden;
+    border: 3px solid #2C2C2C;
+    background: rgba(44,44,44,0.3);
+    box-shadow: 2px 2px 0 #2C2C2C;
+  }
+  .hp-bar-fill {
+    height: 100%; border-radius: 4px;
+    transition: width 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    background: linear-gradient(90deg, #C93756 0%, #E84A6F 50%, #F0C239 100%);
+  }
+  .hp-bar-fill.low { background: linear-gradient(90deg, #8B0000 0%, #C93756 100%); animation: hpPulse 0.8s ease-in-out infinite; }
+  @keyframes hpPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+
+  /* 题库侧边栏 */
+  .qbank-sidebar {
+    position: fixed; top: 0; left: 0; height: 100vh; width: 380px;
+    background: linear-gradient(180deg, #F8F4E6 0%, #fff 100%);
+    border-right: 6px solid #2C2C2C;
+    box-shadow: 8px 0 30px rgba(0,0,0,0.4);
+    z-index: 9999; overflow-y: auto;
+    transform: translateX(-100%);
+    transition: transform 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    font-family: 'Noto Serif SC', serif;
+  }
+  .qbank-sidebar.open { transform: translateX(0); }
+  .qbank-toggle-btn {
+    position: fixed; top: 50%; left: 0; transform: translateY(-50%);
+    z-index: 10000; writing-mode: vertical-rl;
+    padding: 16px 10px; font-size: 18px; font-weight: 900;
+    color: #F8F4E6; letter-spacing: 0.2em;
+    background: linear-gradient(180deg, #C93756 0%, #955539 100%);
+    border: 4px solid #2C2C2C; border-left: none;
+    border-radius: 0 12px 12px 0;
+    box-shadow: 4px 0 12px rgba(0,0,0,0.4);
+    cursor: pointer; transition: all 0.2s;
+    font-family: 'Noto Serif SC', serif;
+  }
+  .qbank-toggle-btn:hover { background: linear-gradient(180deg, #E84A6F 0%, #C93756 100%); transform: translateY(-50%) translateX(4px); }
+  .qbank-toggle-btn.open { left: 380px; border-left: 4px solid #2C2C2C; border-right: none; border-radius: 12px 0 0 12px; box-shadow: -4px 0 12px rgba(0,0,0,0.4); }
+  .qbank-section { border-bottom: 4px solid #2C2C2C; }
+  .qbank-section-header { padding: 14px 20px; font-size: 16px; font-weight: 900; cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: rgba(240,194,57,0.15); }
+  .qbank-section-header:hover { background: rgba(240,194,57,0.3); }
+  .qbank-section-body { padding: 16px 20px; }
+  .qbank-input { width: 100%; border: 3px solid #2C2C2C; border-radius: 8px; padding: 8px 12px; font-size: 14px; font-family: 'Noto Serif SC', serif; background: #fff; resize: vertical; }
+  .qbank-input:focus { outline: none; border-color: #C93756; box-shadow: 0 0 0 3px rgba(201,55,86,0.2); }
+  .qbank-btn { padding: 8px 16px; border: 3px solid #2C2C2C; border-radius: 8px; font-weight: 900; font-size: 14px; cursor: pointer; transition: all 0.15s; font-family: 'Noto Serif SC', serif; }
+  .qbank-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 0 #2C2C2C; }
+  .qbank-btn:active { transform: translateY(0); box-shadow: none; }
+  .qbank-history-item { padding: 10px 14px; border: 3px solid #2C2C2C; border-radius: 10px; margin-bottom: 8px; cursor: pointer; background: #fff; transition: all 0.15s; }
+  .qbank-history-item:hover { background: rgba(240,194,57,0.2); transform: translateX(4px); }
+  .qbank-history-item.active { background: rgba(201,55,86,0.15); border-color: #C93756; }
+
+  /* === 卡片内部VFX动画库 === */
+  
+  /* 🗡️ 一剑开天门 */
+  @keyframes cardSplitLife {
+    0% { transform: translateX(0); opacity: 1; filter: brightness(1); }
+    50% { opacity: 0.9; }
+    100% { transform: translateX(-30%); opacity: 0.3; filter: brightness(1.2); }
+  }
+  
+  @keyframes splitFireShoot {
+    0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+    50% { transform: translate(-65%, -80%) scale(0.7); opacity: 0.8; }
+    100% { transform: translate(-100%, -150%) scale(0.3); opacity: 0; }
+  }
+  
+  /* ⛰️ 泰山压顶 */
+  @keyframes stoneGravityFall {
+    0% { transform: translateY(0) rotateY(0deg); opacity: 0; }
+    5% { opacity: 0.9; }
+    90% { opacity: 0.9; }
+    100% { transform: translateY(110vh) rotateY(360deg); opacity: 0.6; }
+  }
+  
+  @keyframes mountainPressOverlay {
+    0% { background: rgba(0, 0, 0, 0); }
+    30% { background: rgba(0, 0, 0, 0.15); }
+    100% { background: rgba(0, 0, 0, 0.3); }
+  }
+  
+  /* 🔨 碎空 */
+  @keyframes cardDistortShatter {
+    0% { transform: skewX(0deg) scaleY(1); }
+    25% { transform: skewX(-3deg) scaleY(0.98); }
+    50% { transform: skewX(2deg) scaleY(1.02); }
+    75% { transform: skewX(-1deg) scaleY(0.99); }
+    100% { transform: skewX(0deg) scaleY(1); }
+  }
+  
+  @keyframes crackRadiateExpand {
+    0% { width: 0; opacity: 0; }
+    20% { opacity: 1; }
+    85% { opacity: 1; }
+    100% { width: 80px; opacity: 0.6; }
+  }
+  
+  @keyframes shatterSprayShoot {
+    0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+    50% { transform: translate(-30%, -60%) scale(0.8); opacity: 0.8; }
+    100% { transform: translate(0%, -120%) scale(0.4); opacity: 0; }
+  }
+  
+  /* ☄️ 火弩箭 */
+  @keyframes arrowPierceFall {
+    0% { transform: translateX(-50%) translateY(0); opacity: 0; }
+    10% { opacity: 1; }
+    85% { opacity: 1; }
+    100% { transform: translateX(-50%) translateY(110vh); opacity: 0; }
+  }
+  
+  @keyframes fireHoleGlow {
+    0% { box-shadow: 0 0 10px rgba(255,140,0,0.3), inset -1px -1px 3px rgba(0,0,0,0.3); width: 30px; height: 30px; opacity: 0; }
+    20% { opacity: 1; width: 45px; height: 45px; }
+    100% { box-shadow: 0 0 30px rgba(255,140,0,0.95), inset -2px -2px 8px rgba(0,0,0,0.6); opacity: 0.8; }
+  }
+  
+  @keyframes cardBurnScorchOverlay {
+    0% { opacity: 0; }
+    30% { opacity: 0.2; }
+    100% { opacity: 0.5; }
+  }
+  
+  @keyframes fireSprayShot {
+    0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+    50% { transform: translate(-20%, -80%) scale(0.6); opacity: 0.8; }
+    100% { transform: translate(30%, -150%) scale(0.2); opacity: 0; }
+  }
+  
+  /* ⚡ 雷鸣 */
+  @keyframes cardLightningFlash {
+    0% { filter: invert(0); }
+    15% { filter: invert(0.7); }
+    30% { filter: invert(0); }
+    45% { filter: invert(0.7); }
+    60% { filter: invert(0); }
+    75% { filter: invert(0.6); }
+    100% { filter: invert(0); }
+  }
+  
+  @keyframes lightningBoltStrike {
+    0% { opacity: 0; height: 0%; top: 0px; }
+    15% { opacity: 1; height: 150%; }
+    80% { opacity: 1; }
+    100% { opacity: 0; }
+  }
+  
+  @keyframes scorchMarkFade {
+    0% { opacity: 0; }
+    15% { opacity: 0.4; }
+    100% { opacity: 0.25; }
+  }
+  
+  @keyframes electricBurnOverlay {
+    0% { opacity: 0; }
+    30% { opacity: 0.25; }
+    100% { opacity: 0.15; }
+  }
+  
+  @keyframes electricSparkFade {
+    0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+    50% { transform: translate(-30%, -70%) scale(0.7); opacity: 0.7; }
+    100% { transform: translate(-60%, -120%) scale(0.2); opacity: 0; }
+  }
+
+  /* === 半屏VFX特效新动画库 === */
+  
+  /* ⚡ 雷鸣 - 全屏反色 + 闪电链 */
+  @keyframes fullScreenInvert {
+    0% { background: rgba(0,0,0,0); filter: invert(0); }
+    15% { filter: invert(0.4) brightness(1.3); }
+    30% { filter: invert(0.6) brightness(1.2); }
+    50% { filter: invert(0.5) brightness(1.1); }
+    100% { background: rgba(0,0,0,0); filter: invert(0); }
+  }
+  
+  @keyframes lightningChain {
+    0% { height: 0; opacity: 0; boxShadow: 0 0 10px rgba(100,150,255,0.5); }
+    30% { opacity: 1; }
+    80% { height: 35%; opacity: 1; boxShadow: 0 0 30px rgba(100,200,255,0.9); }
+    100% { opacity: 0; }
+  }
+  
+  @keyframes sparkleFloat {
+    0% { transform: translate(0, 0) scale(1); opacity: 1; }
+    50% { transform: translate(30px, -80px) scale(0.6); opacity: 0.8; }
+    100% { transform: translate(80px, -150px) scale(0.3); opacity: 0; }
+  }
+  
+  /* ⛰️ 泰山压顶 - 重力石块下落 */
+  @keyframes gravityStonefall {
+    0% { transform: translateY(0) rotate(0deg); opacity: 0; }
+    5% { opacity: 1; }
+    85% { opacity: 1; }
+    100% { transform: translateY(100vh) rotate(360deg); opacity: 0; }
+  }
+  
+  @keyframes dustCloud {
+    0% { opacity: 0; }
+    30% { opacity: 1; }
+    100% { opacity: 0; }
+  }
+  
+  /* 🗡️ 一剑开天门 - 光辐效果 */
+  @keyframes swordLightTrail {
+    0% { opacity: 0; }
+    20% { opacity: 1; }
+    100% { opacity: 0.2; }
+  }
+  
+  @keyframes swordShockwave {
+    0% { width: 0; height: 0; opacity: 1; }
+    50% { opacity: 1; }
+    100% { width: 300px; height: 300px; opacity: 0; }
+  }
+  
+  @keyframes goldenParticleSplash {
+    0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+    30% { transform: translate(-20%, -80%) scale(0.8); opacity: 0.8; }
+    100% { transform: translate(60px, -200px) scale(0.2); opacity: 0; }
+  }
+  
+  /* 🔨 碎空 - 能量波纹 */
+  @keyframes energyWaveExpand {
+    0% { width: 0; height: 0; opacity: 1; }
+    50% { opacity: 1; }
+    100% { width: 250px; height: 250px; opacity: 0; }
+  }
+  
+  @keyframes shatterParticleShoot {
+    0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+    50% { transform: translate(40px, 40px) scale(0.6); opacity: 0.8; }
+    100% { transform: translate(120px, 120px) scale(0.2); opacity: 0; }
+  }
+  
+  /* ☄️ 火弩箭 - 火焰光效 */
+  @keyframes rocketTrailGlow {
+    0% { transform: scale(0); opacity: 0; }
+    50% { opacity: 1; }
+    100% { transform: scale(1.5); opacity: 0; }
+  }
+  
+  @keyframes heatWaveExpand {
+    0% { width: 0; height: 0; opacity: 1; }
+    50% { opacity: 1; }
+    100% { width: 400px; height: 400px; opacity: 0; }
+  }
+  
+  @keyframes fireParticleRise {
+    0% { transform: translateY(0) scale(1); opacity: 1; }
+    50% { transform: translateY(-100px) scale(0.6); opacity: 0.8; }
+    100% { transform: translateY(-200px) scale(0.2); opacity: 0; }
+  }
+`;
+
+// 传统中国色彩方案
+const COLORS = ['#C93756', '#177CB0', '#789262', '#F0C239', '#955539', '#EA5514', '#5AC8FA'];
+const THEMES = ['ink', 'bamboo', 'snow'];
+
+const ULTIMATE_INFO = [
+  { name: '一剑开天门', reactClass: 'react-slash' }, 
+  { name: '泰山压顶', reactClass: 'react-mountain' },
+  { name: '碎 空', reactClass: 'react-shatter-fx' }, 
+  { name: '火 弩 箭', reactClass: 'react-burn' },
+  { name: '雷 鸣', reactClass: 'react-strobe' }
+];
+
+const defaultStudents = [
+  { id: 1, name: '李白', score: 0 }, { id: 2, name: '杜甫', score: 0 },
+  { id: 3, name: '白居易', score: 0 }, { id: 4, name: '苏轼', score: 0 },
+  { id: 5, name: '辛弃疾', score: 0 }, { id: 6, name: '李清照', score: 0 },
+  { id: 7, name: '王维', score: 0 }, { id: 8, name: '陆游', score: 0 }
+];
+const defaultQuestions = [
+  { q: '北冥有鱼', a: '其名为鲲' }, { q: '上古有大椿者', a: '以八千岁为春' },
+  { q: '床前明月光', a: '疑是地上霜' }, { q: '白日依山尽', a: '黄河入海流' },
+  { q: '举头望明月', a: '低头思故乡' },
+];
+
+// localStorage 辅助函数
+const getSafeStorage = (key, defaultValue) => {
+  try {
+    const item = localStorage.getItem(key);
+    return item ? JSON.parse(item) : defaultValue;
+  } catch { return defaultValue; }
+};
+const setSafeStorage = (key, value) => {
+  try { localStorage.setItem(key, JSON.stringify(value)); } catch(e) { console.error(e); }
+};
+
+function App() {
+  const [gameState, setGameState] = useState('setup');
+  const [totalTime, setTotalTime] = useState(300);
+  const [timeRemaining, setTimeRemaining] = useState(300);
+  const [students, setStudents] = useState(defaultStudents);
+  const [questions, setQuestions] = useState(defaultQuestions);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [qBankHistory, setQBankHistory] = useState(getSafeStorage('hsljd_qbank_history', {}));
+  
+  const [currentTheme, setCurrentTheme] = useState('ink');
+  
+  const [leftPlayer, setLeftPlayer] = useState(null);
+  const [rightPlayer, setRightPlayer] = useState(null);
+  const [leftColor, setLeftColor] = useState(COLORS[0]);
+  const [rightColor, setRightColor] = useState(COLORS[1]);
+
+  const [leftHP, setLeftHP] = useState(1);
+  const [rightHP, setRightHP] = useState(1);
+  const [leftTrophies, setLeftTrophies] = useState([]);
+  const [rightTrophies, setRightTrophies] = useState([]);
+
+  const [leftReady, setLeftReady] = useState(false);
+  const [rightReady, setRightReady] = useState(false);
+  const [currentStreak, setCurrentStreak] = useState(0);
+  const [champSide, setChampSide] = useState(null);
+
+  const [currentQIndex, setCurrentQIndex] = useState(0);
+  const [optionSequence, setOptionSequence] = useState([]);
+  const [displayedOption, setDisplayedOption] = useState('');
+  
+  const [ultimateName, setUltimateName] = useState(null);
+  const [actionEffect, setActionEffect] = useState(null);
+  const [deadSide, setDeadSide] = useState(null);
+  const [slotName, setSlotName] = useState('');
+  const [rankUpAnim, setRankUpAnim] = useState(null); // { side, rank, playerName }
+  const [reviveCount, setReviveCount] = useState({ left: 0, right: 0 });
+  const [leiSide, setLeiSide] = useState(null); // 擂主方向
+  const [hpBurstSide, setHpBurstSide] = useState(null); // 获胜膨胀特效
+
+  const timersRef = useRef({ main: null, drum: null, pop: null, slot: null, flow: [] });
+
+  useEffect(() => { loadAssets().catch(e=>console.log(e)); }, []);
+
+  const clearFlowTimeouts = () => { timersRef.current.flow.forEach(clearTimeout); timersRef.current.flow = []; };
+  const safeTimeout = (callback, delay) => {
+    const id = setTimeout(() => { if (timeRemaining > 0 && gameState !== 'gameover') callback(); }, delay);
+    timersRef.current.flow.push(id); return id;
+  };
+
+  useEffect(() => {
+    if (gameState !== 'setup' && gameState !== 'gameover' && gameState !== 'ready') {
+      timersRef.current.main = setInterval(() => {
+        setTimeRemaining(prev => {
+          if (prev <= 1) {
+            clearInterval(timersRef.current.main); clearInterval(timersRef.current.drum);
+            clearTimeout(timersRef.current.pop); clearInterval(timersRef.current.slot); clearFlowTimeouts();
+            setGameState('gameover'); return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(timersRef.current.main);
+  }, [gameState, timeRemaining]);
+
+  const generateFakeOption = (ans) => {
+    if (!ans || ans.length <= 1) return ans + "错";
+    let arr = ans.split('');
+    if (arr.every(c => c === arr[0])) return ans + "错";
+    for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]]; }
+    const fake = arr.join(''); return fake === ans ? generateFakeOption(ans) : fake;
+  };
+
+  const buildOptionSequence = (ans) => {
+    let seq = []; let last = '';
+    for(let i=0; i<8; i++) {
+        let isCorrect = Math.random() < 0.25;
+        if (i === 4 && !seq.includes(ans)) isCorrect = true;
+        if (i === 7 && !seq.includes(ans)) isCorrect = true;
+
+        if (isCorrect && last !== ans) { seq.push(ans); last = ans; } 
+        else {
+            let fake = generateFakeOption(ans);
+            let attempts = 0;
+            while ((fake === last || fake === ans) && attempts < 10) { fake = generateFakeOption(ans); attempts++; }
+            seq.push(fake); last = fake;
+        }
+    }
+    return seq;
+  };
+
+  const handleFileUpload = (e) => {
+    if (!window.XLSX) return alert("核心引擎加载中，请稍候");
+    const file = e.target.files[0]; const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const wb = window.XLSX.read(evt.target.result, { type: 'binary' });
+        const data = window.XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
+        if(data.length > 0 && data[0]['姓名']) {
+          setStudents(data.map((row, i) => ({ id: i+1, name: row['姓名'], score: 0 })));
+          alert("名册载入成功！");
+        } else alert("名册格式有误，需包含【姓名】表头。");
+      } catch(err) { alert("文件解析失败！"); }
+    };
+    reader.readAsBinaryString(file);
+  };
+
+  // 题库管理函数
+  const downloadQBankTemplate = () => {
+    if (!window.XLSX) return alert("核心引擎加载中，请稍候");
+    const ws = window.XLSX.utils.aoa_to_sheet([['上句（题目）', '下句（答案）'], ['床前明月光', '疑是地上霜'], ['白日依山尽', '黄河入海流']]);
+    const wb = window.XLSX.utils.book_new();
+    window.XLSX.utils.book_append_sheet(wb, ws, '题库');
+    window.XLSX.writeFile(wb, '华山论剑题库模板.xlsx');
+  };
+
+  const importQBankFromExcel = (e) => {
+    if (!window.XLSX) return alert("核心引擎加载中，请稍候");
+    const file = e.target.files[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const wb = window.XLSX.read(evt.target.result, { type: 'binary' });
+        const data = window.XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
+        const parsed = data.filter(r => r['上句（题目）'] && r['下句（答案）']).map(r => ({ q: String(r['上句（题目）']).trim(), a: String(r['下句（答案）']).trim() }));
+        if (parsed.length === 0) return alert("未找到有效题目，请检查表头：【上句（题目）】【下句（答案）】");
+        const name = file.name.replace(/\.[^.]+$/, '') || `题库_${Date.now()}`;
+        saveQBankToHistory(name, parsed);
+        setQuestions(parsed);
+        alert(`题库「${name}」载入成功，共 ${parsed.length} 题！`);
+      } catch(err) { alert("文件解析失败！"); }
+    };
+    reader.readAsBinaryString(file);
+    e.target.value = '';
+  };
+
+  const exportQBankToExcel = () => {
+    if (!window.XLSX) return alert("核心引擎加载中，请稍候");
+    if (questions.length === 0) return alert("当前题库为空");
+    const rows = [['上句（题目）', '下句（答案）'], ...questions.map(q => [q.q, q.a])];
+    const ws = window.XLSX.utils.aoa_to_sheet(rows);
+    const wb = window.XLSX.utils.book_new();
+    window.XLSX.utils.book_append_sheet(wb, ws, '题库');
+    window.XLSX.writeFile(wb, `华山论剑题库_${new Date().toLocaleDateString('zh-CN').replace(/\//g,'-')}.xlsx`);
+  };
+
+  const saveQBankToHistory = (name, qs) => {
+    const newHistory = { ...qBankHistory, [name]: { questions: qs, savedAt: Date.now() } };
+    setQBankHistory(newHistory);
+    setSafeStorage('hsljd_qbank_history', newHistory);
+  };
+
+  const loadQBankFromHistory = (name) => {
+    const bank = qBankHistory[name];
+    if (bank) { setQuestions(bank.questions); alert(`已载入题库「${name}」，共 ${bank.questions.length} 题`); }
+  };
+
+  const deleteQBankFromHistory = (name) => {
+    const newHistory = { ...qBankHistory };
+    delete newHistory[name];
+    setQBankHistory(newHistory);
+    setSafeStorage('hsljd_qbank_history', newHistory);
+  };
+
+  // 手动录入题目
+  const [manualInput, setManualInput] = useState('');
+  const [manualSectionOpen, setManualSectionOpen] = useState(false);
+  const [historySectionOpen, setHistorySectionOpen] = useState(true);
+
+  const parseManualInput = () => {
+    const lines = manualInput.trim().split('\n').filter(l => l.trim());
+    const parsed = [];
+    for (const line of lines) {
+      const sep = line.includes('|') ? '|' : line.includes('，') ? '，' : line.includes(',') ? ',' : null;
+      if (sep) {
+        const parts = line.split(sep);
+        if (parts.length >= 2) parsed.push({ q: parts[0].trim(), a: parts[1].trim() });
+      }
+    }
+    if (parsed.length === 0) return alert("格式有误！每行一题，用 | 或 ，分隔上下句\n例：床前明月光|疑是地上霜");
+    const name = `手动录入_${new Date().toLocaleDateString('zh-CN').replace(/\//g,'-')}`;
+    saveQBankToHistory(name, parsed);
+    setQuestions(parsed);
+    setManualInput('');
+    alert(`录入成功！共 ${parsed.length} 题，已保存为「${name}」`);
+  };
+
+  const getRandomColor = (...excludes) => {
+    const pool = COLORS.filter(c => !excludes.includes(c));
+    if (pool.length === 0) return COLORS[Math.floor(Math.random() * COLORS.length)];
+    return pool[Math.floor(Math.random() * pool.length)];
+  };
+
+  const prepareNextRound = (winnerSide = null) => {
+    setCurrentTheme(THEMES[Math.floor(Math.random() * THEMES.length)]);
+
+    let newLeft = leftPlayer; let newRight = rightPlayer;
+    let pool = students.filter(s => s.id !== leftPlayer?.id && s.id !== rightPlayer?.id);
+    if (pool.length === 0) pool = students;
+
+    if (!winnerSide) {
+      newLeft = pool[Math.floor(Math.random() * pool.length)]; pool = pool.filter(s => s.id !== newLeft.id);
+      newRight = pool[Math.floor(Math.random() * pool.length)];
+      const _newLC = getRandomColor(''); const _newRC = getRandomColor(_newLC);
+      setLeftColor(_newLC); setRightColor(_newRC);
+      setLeftHP(1); setRightHP(1);
+      setLeftTrophies([]); setRightTrophies([]); setCurrentStreak(0); setChampSide(null);
+    }
+    setLeftPlayer(newLeft); setRightPlayer(newRight);
+    
+    const qIndex = Math.floor(Math.random() * questions.length); setCurrentQIndex(qIndex);
+    setOptionSequence(buildOptionSequence(questions[qIndex].a));
+
+    setLeftReady(false); setRightReady(false); setDisplayedOption('');
+    setActionEffect(null); setUltimateName(null); setDeadSide(null); setGameState('ready');
+  };
+
+  const startGame = () => {
+    initAudio(); playSound('start'); setTimeRemaining(totalTime); 
+    setStudents(students.map(s => ({...s, score: 0}))); prepareNextRound();
+  };
+
+  const handleReady = (side) => {
+    if (gameState !== 'ready') return;
+    playSound('ready');
+    if (side === 'left') setLeftReady(true);
+    if (side === 'right') setRightReady(true);
+  };
+
+  useEffect(() => {
+    if (gameState === 'ready' && leftReady && rightReady) {
+      setGameState('question_reveal');
+      safeTimeout(() => { setGameState('battle'); popNextOption(0); }, 1500); 
+    }
+  }, [leftReady, rightReady, gameState]);
+
+  const popNextOption = (tickIndex) => {
+    if (tickIndex < 8) {
+      setDisplayedOption(optionSequence[tickIndex]);
+      clearInterval(timersRef.current.drum); playSound('drum_heavy');
+      timersRef.current.drum = setInterval(() => { playSound('drum_light'); }, 400); 
+      timersRef.current.pop = setTimeout(() => { popNextOption(tickIndex + 1); }, 1250);
+    } else handleTie();
+  };
+
+  const handleTie = () => {
+    clearInterval(timersRef.current.drum); playSound('miss');
+    setActionEffect({ type: 'tie' }); setGameState('result');
+    safeTimeout(() => prepareNextRound(champSide || 'none_died'), 2000);
+  };
+
+  const handleAttack = (attackerSide) => {
+    if (gameState !== 'battle') return;
+    clearTimeout(timersRef.current.pop); clearInterval(timersRef.current.drum);
+    
+    const defenderSide = attackerSide === 'left' ? 'right' : 'left';
+    const isCorrect = displayedOption === questions[currentQIndex].a;
+    const uId = Math.floor(Math.random() * 5); // 0-4
+
+    let tempLeftTrophies = [...leftTrophies]; let tempRightTrophies = [...rightTrophies];
+    let newLeftHP = leftHP; let newRightHP = rightHP;
+
+    if (isCorrect) {
+      if (defenderSide === 'left') { newLeftHP--; tempLeftTrophies.pop(); } 
+      else { newRightHP--; tempRightTrophies.pop(); }
+      
+      setUltimateName(ULTIMATE_INFO[uId]); setGameState('ultimate_cutin'); playSound('cutin');
+      
+      safeTimeout(() => {
+        setUltimateName(null); setGameState('ultimate_impact'); playSound('ultimate', uId);
+        // 传递 attackerSide 用于判定施法方动画（如火弩箭抖动）
+        setActionEffect({ side: defenderSide, type: 'hit', ultimateId: uId, attacker: attackerSide });
+        
+        // 判定回合结束（火弩箭燃烧时间较长，延迟多一点）
+        const finishDelay = uId === 3 ? 1800 : 1200;
+        safeTimeout(() => finalizeRound(tempLeftTrophies, tempRightTrophies, newLeftHP, newRightHP, attackerSide, defenderSide), finishDelay);
+      }, 1000); 
+    } else {
+      if (attackerSide === 'left') { newLeftHP--; tempLeftTrophies.pop(); } 
+      else { newRightHP--; tempRightTrophies.pop(); }
+      
+      setGameState('ultimate_impact'); playSound('miss');
+      setActionEffect({ side: attackerSide, type: 'miss' });
+      safeTimeout(() => finalizeRound(tempLeftTrophies, tempRightTrophies, newLeftHP, newRightHP, null, null), 1200);
+    }
+  };
+
+  // 段位判断辅助
+  const getRank = (score) => {
+    if (score >= 100) return 'gold';
+    if (score >= 60) return 'silver';
+    if (score >= 30) return 'bronze';
+    return null;
+  };
+
+  const finalizeRound = (newLeftTrophies, newRightTrophies, newLeftHP, newRightHP, winnerSide, loserSide) => {
+    let isLeftDead = newLeftHP <= 0;
+    let isRightDead = newRightHP <= 0;
+
+    // 再起机制：死亡时按段位概率复活（每人最多5次）
+    const checkRevive = (side, isDead, hp) => {
+      if (!isDead) return { isDead: false, hp };
+      const player = side === 'left' ? leftPlayer : rightPlayer;
+      const score = students.find(s => s.id === player?.id)?.score || 0;
+      const rank = getRank(score);
+      const reviveProb = rank === 'gold' ? 0.5 : rank === 'silver' ? 0.3 : rank === 'bronze' ? 0.1 : 0;
+      const used = reviveCount[side];
+      if (reviveProb > 0 && used < 5 && Math.random() < reviveProb) {
+        return { isDead: false, hp: 1, revived: true };
+      }
+      return { isDead: true, hp };
+    };
+
+    const leftRevive = checkRevive('left', isLeftDead, newLeftHP);
+    const rightRevive = checkRevive('right', isRightDead, newRightHP);
+
+    if (leftRevive.revived) {
+      newLeftHP = 1; isLeftDead = false;
+      setReviveCount(prev => ({ ...prev, left: prev.left + 1 }));
+      playSound('revive');
+    }
+    if (rightRevive.revived) {
+      newRightHP = 1; isRightDead = false;
+      setReviveCount(prev => ({ ...prev, right: prev.right + 1 }));
+      playSound('revive');
+    }
+
+    let nextWinnerSide = null; let tempDead = null;
+    if (isLeftDead && !isRightDead) { nextWinnerSide = 'right'; tempDead = 'left'; }
+    else if (isRightDead && !isLeftDead) { nextWinnerSide = 'left'; tempDead = 'right'; }
+    else if (isLeftDead && isRightDead) nextWinnerSide = null;
+    else nextWinnerSide = 'none_died';
+
+    setLeftTrophies(newLeftTrophies); setRightTrophies(newRightTrophies);
+    setLeftHP(newLeftHP); setRightHP(newRightHP);
+    setGameState('result');
+
+    safeTimeout(() => {
+      let updateStudents = [...students];
+      let rankUpInfo = null;
+
+      if (winnerSide) {
+        setCurrentStreak(prev => prev + 1);
+        const winnerId = winnerSide === 'left' ? leftPlayer.id : rightPlayer.id;
+        const idx = updateStudents.findIndex(s => s.id === winnerId);
+        if (idx !== -1) {
+          const oldRank = getRank(updateStudents[idx].score);
+          updateStudents[idx] = { ...updateStudents[idx], score: updateStudents[idx].score + 10 };
+          const newRank = getRank(updateStudents[idx].score);
+          if (newRank && newRank !== oldRank) {
+            rankUpInfo = { side: winnerSide, rank: newRank, playerName: updateStudents[idx].name };
+          }
+        }
+      }
+      setStudents(updateStudents);
+
+      const proceed = () => {
+        if (nextWinnerSide === 'none_died') prepareNextRound(champSide);
+        else if (nextWinnerSide) {
+          setChampSide(nextWinnerSide); setDeadSide(tempDead);
+          startSlotMachine(nextWinnerSide, updateStudents);
+        } else prepareNextRound();
+      };
+
+      if (rankUpInfo) {
+        playSound('rankup', rankUpInfo.rank);
+        setRankUpAnim(rankUpInfo);
+        safeTimeout(() => { setRankUpAnim(null); proceed(); }, 3200);
+      } else {
+        proceed();
+      }
+    }, 1500);
+  };
+
+  const startSlotMachine = (winnerSide, currentPool) => {
+    setGameState('slot_machine');
+    const pool = currentPool.filter(s => s.id !== (winnerSide==='left'?leftPlayer.id:rightPlayer.id));
+    let tick = 0; playSound('drum_heavy');
+    timersRef.current.slot = setInterval(() => {
+      setSlotName(pool[tick % pool.length].name);
+      if(tick % 2 === 0) playSound('drum_light');
+      tick++;
+    }, 100);
+  };
+
+  const stopSlotMachine = () => {
+    clearInterval(timersRef.current.slot); playSound('start');
+    const pool = students.filter(s => s.id !== (champSide==='left'?leftPlayer.id:rightPlayer.id));
+    const newChallenger = pool.find(s => s.name === slotName) || pool[0];
+
+    if (champSide === 'left') {
+      setRightPlayer(newChallenger); setRightColor(getRandomColor(leftColor)); setRightTrophies([]); setRightHP(1);
+      setReviveCount(prev => ({ ...prev, right: 0 }));
+      setLeftHP(prev => { playSound('hpburst'); setHpBurstSide('left'); setTimeout(() => setHpBurstSide(null), 500); return prev + 1; });
+    } else {
+      setLeftPlayer(newChallenger); setLeftColor(getRandomColor(rightColor)); setLeftTrophies([]); setLeftHP(1);
+      setReviveCount(prev => ({ ...prev, left: 0 }));
+      setRightHP(prev => { playSound('hpburst'); setHpBurstSide('right'); setTimeout(() => setHpBurstSide(null), 500); return prev + 1; });
+    }
+    setLeiSide(champSide);
+    prepareNextRound(champSide);
+  };
+
+  const formatTime = (sec) => `${Math.floor(sec / 60)}:${sec % 60 < 10 ? '0' : ''}${sec % 60}`;
+
+  // ================= 段位升级覆盖层 =================
+  const renderRankUpOverlay = () => {
+    if (!rankUpAnim) return null;
+    const { rank, playerName } = rankUpAnim;
+    const rankLabel = rank === 'gold' ? '金' : rank === 'silver' ? '银' : '铜';
+    const rankColor = rank === 'gold' ? '#FFD700' : rank === 'silver' ? '#C0C0C0' : '#CD7F32';
+    const rankBg = rank === 'gold'
+      ? 'linear-gradient(135deg, #7B5800 0%, #C8960C 40%, #FFD700 60%, #C8960C 80%, #7B5800 100%)'
+      : rank === 'silver'
+      ? 'linear-gradient(135deg, #555 0%, #999 40%, #E8E8E8 60%, #999 80%, #555 100%)'
+      : 'linear-gradient(135deg, #5C3000 0%, #A0622A 40%, #E8A060 60%, #A0622A 80%, #5C3000 100%)';
+    const confettiColors = rank === 'gold'
+      ? ['#FFD700','#FFA500','#FF6B35','#F0C239','#FFFACD']
+      : rank === 'silver'
+      ? ['#C0C0C0','#E8E8E8','#A0A0A0','#177CB0','#5AC8FA']
+      : ['#CD7F32','#E8A060','#F0C239','#789262','#C93756'];
+
+    const confettiPieces = Array.from({ length: 40 }, (_, i) => ({
+      id: i,
+      left: `${Math.random() * 100}%`,
+      delay: `${Math.random() * 0.8}s`,
+      duration: `${1.5 + Math.random() * 1.5}s`,
+      color: confettiColors[i % confettiColors.length],
+      rotate: `${Math.random() * 360}deg`,
+      size: `${8 + Math.random() * 12}px`,
+    }));
+
+    return (
+      <div className="rankup-overlay">
+        {/* 半透明背景 */}
+        <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)' }} />
+        {/* 撒花 */}
+        <div className="confetti-container">
+          {confettiPieces.map(p => (
+            <div key={p.id} className="confetti-piece"
+                 style={{ left: p.left, top: '-20px', background: p.color, width: p.size, height: p.size,
+                          transform: `rotate(${p.rotate})`,
+                          animationDuration: p.duration, animationDelay: p.delay }} />
+          ))}
+        </div>
+        {/* 升级卡片 */}
+        <div className="rankup-card">
+          <div style={{ padding: '6vh 8vw', borderRadius: '3vh', background: rankBg,
+                        border: `10px solid ${rankColor}`,
+                        boxShadow: `0 0 60px ${rankColor}, 0 0 120px ${rankColor}80, 0 20px 0 #2C2C2C`,
+                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2vh' }}>
+            <div style={{ fontSize: '4vh', color: rankColor, fontWeight: 900, letterSpacing: '0.3em',
+                          textShadow: `0 0 20px ${rankColor}`, fontFamily: "'Noto Serif SC', serif" }}>
+              ── 段位晋升 ──
+            </div>
+            <div style={{ fontSize: '16vh', fontWeight: 900, color: rankColor, lineHeight: 1,
+                          textShadow: `0 0 40px ${rankColor}, 4px 4px 0 #2C2C2C`,
+                          fontFamily: "'Zhi Mang Xing', cursive" }}>
+              {rankLabel}
+            </div>
+            <div style={{ fontSize: '6vh', color: '#F8F4E6', fontWeight: 900, letterSpacing: '0.2em',
+                          textShadow: '2px 2px 0 #2C2C2C', fontFamily: "'Noto Serif SC', serif" }}>
+              {playerName}
+            </div>
+            <div style={{ fontSize: '3vh', color: rankColor, fontWeight: 700, letterSpacing: '0.15em',
+                          fontFamily: "'Noto Serif SC', serif" }}>
+              {rank === 'gold' ? '武林至尊 · 金甲护身' : rank === 'silver' ? '银甲护身 · 再起三成' : '铜甲护身 · 再起一成'}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // ================= 题库侧边栏 =================
+  const renderQBankSidebar = () => {
+    const historyKeys = Object.keys(qBankHistory).sort((a, b) => (qBankHistory[b].savedAt || 0) - (qBankHistory[a].savedAt || 0));
+    return (
+      <>
+        <button className={`qbank-toggle-btn ${sidebarOpen ? 'open' : ''}`} onClick={() => setSidebarOpen(v => !v)}>
+          {sidebarOpen ? '收起' : '题库箱'}
+        </button>
+        <div className={`qbank-sidebar ${sidebarOpen ? 'open' : ''}`}>
+          <div style={{ padding: '20px 20px 8px', borderBottom: '4px solid #2C2C2C', background: 'linear-gradient(135deg, #C93756 0%, #955539 100%)' }}>
+            <div style={{ fontSize: 22, fontWeight: 900, color: '#F8F4E6', letterSpacing: '0.2em' }}>📚 题库箱</div>
+            <div style={{ fontSize: 13, color: 'rgba(248,244,230,0.8)', marginTop: 4 }}>当前 {questions.length} 题</div>
+          </div>
+
+          {/* Excel 导入导出 */}
+          <div className="qbank-section">
+            <div className="qbank-section-header">
+              <span>📥 Excel 导入 / 导出</span>
+            </div>
+            <div className="qbank-section-body" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <button className="qbank-btn" style={{ background: 'linear-gradient(135deg, #789262 0%, #8FA872 100%)', color: '#fff' }} onClick={downloadQBankTemplate}>
+                ⬇ 下载题库模板
+              </button>
+              <label className="qbank-btn" style={{ background: 'linear-gradient(135deg, #177CB0 0%, #2A9FD6 100%)', color: '#fff', display: 'block', textAlign: 'center', cursor: 'pointer' }}>
+                📂 导入 Excel 题库
+                <input type="file" accept=".xlsx,.xls" style={{ display: 'none' }} onChange={importQBankFromExcel} />
+              </label>
+              <button className="qbank-btn" style={{ background: 'linear-gradient(135deg, #F0C239 0%, #FFD700 100%)', color: '#2C2C2C' }} onClick={exportQBankToExcel}>
+                📤 导出当前题库
+              </button>
+            </div>
+          </div>
+
+          {/* 手动录入 */}
+          <div className="qbank-section">
+            <div className="qbank-section-header" onClick={() => setManualSectionOpen(v => !v)}>
+              <span>✏️ 手动录入</span>
+              <span>{manualSectionOpen ? '▲' : '▼'}</span>
+            </div>
+            {manualSectionOpen && (
+              <div className="qbank-section-body" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div style={{ fontSize: 12, color: '#789262', lineHeight: 1.6 }}>
+                  每行一题，用 | 或 ，分隔上下句：<br/>
+                  <code style={{ background: '#f0f0f0', padding: '2px 6px', borderRadius: 4 }}>床前明月光|疑是地上霜</code>
+                </div>
+                <textarea className="qbank-input" rows={8} placeholder="床前明月光|疑是地上霜&#10;白日依山尽|黄河入海流&#10;举头望明月|低头思故乡" value={manualInput} onChange={e => setManualInput(e.target.value)} />
+                <button className="qbank-btn" style={{ background: 'linear-gradient(135deg, #C93756 0%, #E84A6F 100%)', color: '#fff' }} onClick={parseManualInput}>
+                  ✅ 确认录入并载入
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* 历史题库 */}
+          <div className="qbank-section">
+            <div className="qbank-section-header" onClick={() => setHistorySectionOpen(v => !v)}>
+              <span>🗂 历史题库 ({historyKeys.length})</span>
+              <span>{historySectionOpen ? '▲' : '▼'}</span>
+            </div>
+            {historySectionOpen && (
+              <div className="qbank-section-body">
+                {historyKeys.length === 0 && <div style={{ color: '#999', fontSize: 13 }}>暂无历史题库</div>}
+                {historyKeys.map(name => (
+                  <div key={name} className="qbank-history-item">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ flex: 1, cursor: 'pointer' }} onClick={() => loadQBankFromHistory(name)}>
+                        <div style={{ fontWeight: 900, fontSize: 14, color: '#2C2C2C' }}>{name}</div>
+                        <div style={{ fontSize: 12, color: '#789262' }}>{qBankHistory[name].questions?.length || 0} 题</div>
+                      </div>
+                      <button onClick={() => deleteQBankFromHistory(name)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, color: '#C93756', padding: '0 4px' }}>🗑</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </>
+    );
+  };
+
+  // ================= 背景与特效渲染 - 增强版 =================
+  const renderBackground = () => {
+    if (currentTheme === 'ink') {
+      return (
+        <div className="absolute inset-0 bg-theme-ink z-0 transition-colors duration-1000">
+           {/* 祥云飘动 */}
+           <div className="cloud-deco top-[15%] text-[12vh]" style={{animationDelay: '0s'}}>☁️</div>
+           <div className="cloud-deco top-[35%] text-[10vh]" style={{animationDelay: '10s'}}>☁️</div>
+           <div className="cloud-deco top-[55%] text-[8vh]" style={{animationDelay: '20s'}}>☁️</div>
+
+           {/* 太阳 */}
+           <div className="emoji-deco top-[10%] right-[15%] text-[20vh] filter-none text-red-600"
+                style={{
+                  opacity: 0.8,
+                  filter: 'drop-shadow(0 0 40px rgba(201,55,86,0.6))',
+                  animation: 'floatSlow 15s ease-in-out infinite'
+                }}>
+             ☀️
+           </div>
+
+           {/* 山峰 */}
+           <div className="emoji-deco bottom-[-5%] left-[5%] text-[40vh]"
+                style={{opacity: 0.5, filter: 'grayscale(30%)'}}>
+             ⛰️
+           </div>
+           <div className="emoji-deco bottom-[-10%] right-[5%] text-[50vh]"
+                style={{opacity: 0.4, filter: 'grayscale(30%)'}}>
+             🏔️
+           </div>
+        </div>
+      );
+    } else if (currentTheme === 'bamboo') {
+      return (
+        <div className="absolute inset-0 bg-theme-bamboo z-0 transition-colors duration-1000">
+           {/* 竹子 */}
+           <div className="emoji-deco bottom-[-5%] left-[-5%] text-[45vh]"
+                style={{opacity: 0.5, filter: 'grayscale(20%)'}}>
+             🎋
+           </div>
+           <div className="emoji-deco bottom-[-10%] right-[10%] text-[35vh]"
+                style={{opacity: 0.5, filter: 'grayscale(20%)'}}>
+             🎍
+           </div>
+
+           {/* 飘落的竹叶 */}
+           <div className="emoji-deco top-[15%] left-[30%] text-[12vh]"
+                style={{
+                  animation: 'leafFall 8s ease-in-out infinite',
+                  animationDelay: '0s',
+                  opacity: 0.4
+                }}>
+             🍃
+           </div>
+           <div className="emoji-deco top-[10%] right-[25%] text-[10vh]"
+                style={{
+                  animation: 'leafFall 10s ease-in-out infinite',
+                  animationDelay: '3s',
+                  opacity: 0.4
+                }}>
+             🍃
+           </div>
+           <div className="emoji-deco top-[40%] left-[20%] text-[8vh]"
+                style={{
+                  animation: 'leafFall 12s ease-in-out infinite',
+                  animationDelay: '6s',
+                  opacity: 0.3
+                }}>
+             🍃
+           </div>
+        </div>
+      );
+    } else {
+      return (
+        <div className="absolute inset-0 bg-theme-snow z-0 transition-colors duration-1000">
+           {/* 雪山 */}
+           <div className="emoji-deco bottom-[-10%] right-[-5%] text-[50vh]"
+                style={{opacity: 0.5, filter: 'brightness(1.2)'}}>
+             🏔️
+           </div>
+           <div className="emoji-deco bottom-[-5%] left-[10%] text-[40vh]"
+                style={{opacity: 0.5, filter: 'brightness(1.2)'}}>
+             🏔️
+           </div>
+
+           {/* 飘雪 */}
+           <div className="emoji-deco top-[10%] left-[20%] text-[10vh]"
+                style={{
+                  animation: 'snowFall 10s linear infinite',
+                  animationDelay: '0s',
+                  opacity: 0.6
+                }}>
+             ❄️
+           </div>
+           <div className="emoji-deco top-[5%] right-[30%] text-[8vh]"
+                style={{
+                  animation: 'snowFall 12s linear infinite',
+                  animationDelay: '3s',
+                  opacity: 0.5
+                }}>
+             ❄️
+           </div>
+           <div className="emoji-deco top-[15%] left-[50%] text-[6vh]"
+                style={{
+                  animation: 'snowFall 14s linear infinite',
+                  animationDelay: '6s',
+                  opacity: 0.4
+                }}>
+             ❄️
+           </div>
+           <div className="emoji-deco top-[8%] right-[60%] text-[7vh]"
+                style={{
+                  animation: 'snowFall 11s linear infinite',
+                  animationDelay: '9s',
+                  opacity: 0.5
+                }}>
+             ❄️
+           </div>
+        </div>
+      );
+    }
+  };
+
+  // === 受击方半屏级VFX特效层 === （已弃用）
+  const renderVFXFullScreen = (side) => {
+    // 所有VFX已迁移至renderVFXInsideCard
+    return null;
+  };
+
+  // 内部局限于半屏的视觉光影 - 新设计版（所有特效在卡片上完成）
+  const renderVFXInsideCard = (side) => {
+    if (gameState !== 'ultimate_impact' && gameState !== 'result') return null;
+    if (actionEffect?.side !== side) return null;
+
+    if (actionEffect.type === 'miss') {
+      return (
+        <div className="vfx-layer">
+          <div className="absolute inset-0 bg-black/60 mix-blend-multiply" />
+          <div className="vfx-injury" />
+          <div className="absolute inset-0 flex items-center justify-center text-[15vh] font-zhi font-black text-white drop-shadow-[0_0_30px_#C93756] rotate-[-15deg]" style={{textShadow: '0 0 30px #C93756, 4px 4px 0 #2C2C2C'}}>内伤</div>
+        </div>
+      );
+    }
+
+    if (actionEffect.type === 'hit') {
+      const uid = actionEffect.ultimateId;
+      
+      // === 音效触发 - 在首次hit时启动 ===
+      if (gameState === 'ultimate_impact' && actionEffect.ultimateId !== undefined) {
+        // uid=1: 泰山压顶 - 5次撞击音（每块石头撞击时）
+        if (uid === 1) {
+          [0.35, 0.7, 1.05, 1.4, 1.75].forEach((delay) => {
+            setTimeout(() => playSound('ultimate', 1), delay * 1000);
+          });
+        }
+        
+        // uid=3: 火弩箭 - 5次射出音
+        if (uid === 3) {
+          [0.2, 0.4, 0.6, 0.8, 1.0].forEach((delay) => {
+            setTimeout(() => playSound('ultimate', 3), delay * 1000);
+          });
+        }
+        
+        // uid=2: 碎空 - 3次碎裂声
+        if (uid === 2) {
+          [0.3, 0.5, 0.7].forEach((delay) => {
+            setTimeout(() => playSound('shatter', 2), delay * 1000);
+          });
+        }
+        
+        // uid=4: 雷鸣 - 3次击中音
+        if (uid === 4) {
+          [0.4, 0.7, 1.0].forEach((delay) => {
+            setTimeout(() => playSound('thunder', 4), delay * 1000);
+          });
+        }
+        
+        // uid=0: 一剑开天门 - 拔剑音 + 穿刺音
+        if (uid === 0) {
+          setTimeout(() => playSound('ultimate', 0), 0);
+          setTimeout(() => playSound('ultimate', 0), 400);
+        }
+      }
+      
+      return (
+        <div className="vfx-layer">
+          {/* 🗡️ 一剑开天门 - 宝剑贯穿+竖向裂纹+左右分裂+燃烧边角 */}
+          {uid === 0 && (
+            <>
+              {/* 金色宝剑从上贯穿下落 */}
+              <div style={{
+                position: 'absolute',
+                left: '50%', top: '-80px',
+                transform: 'translateX(-50%)',
+                width: '50px', height: '120px',
+                background: 'linear-gradient(90deg, #DAA520 0%, #FFD700 40%, #FFF700 50%, #FFD700 60%, #DAA520 100%)',
+                clipPath: 'polygon(50% 0%, 65% 20%, 75% 35%, 50% 100%, 25% 35%, 35% 20%)',
+                zIndex: 100,
+                animation: 'swordPierceFall 0.7s ease-in forwards',
+                boxShadow: '0 0 30px rgba(255, 215, 0, 0.9), inset -3px 0 8px rgba(255, 255, 255, 0.6), inset 3px 0 8px rgba(100, 50, 0, 0.4)'
+              }} />
+              
+              {/* 竖向白色发光裂纹 */}
+              <div style={{
+                position: 'absolute',
+                left: '50%', top: 0, bottom: 0,
+                width: '6px', transform: 'translateX(-50%)',
+                background: 'linear-gradient(180deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.9) 40%, rgba(255,255,255,0.9) 60%, rgba(255,255,255,0) 100%)',
+                boxShadow: '0 0 25px rgba(255,215,0,0.9), inset 0 0 12px rgba(255,255,255,0.7)',
+                animation: 'swordCrackExpandNew 0.5s ease-out forwards',
+                filter: 'brightness(2.5)',
+                pointerEvents: 'none'
+              }} />
+              
+              {/* 左右分裂效果（卡片沿中间裂开） */}
+              <div style={{
+                position: 'absolute', inset: 0,
+                pointerEvents: 'none',
+                overflow: 'hidden'
+              }}>
+                {/* 左半部分向左飘出+燃烧 */}
+                <div style={{
+                  position: 'absolute',
+                  left: 0, top: 0,
+                  width: '50%', height: '100%',
+                  background: 'linear-gradient(90deg, transparent 0%, rgba(255,215,0,0.15) 100%)',
+                  animation: 'cardSplitLife 0.6s ease-out forwards',
+                  animationDelay: '0.35s'
+                }} />
+                {/* 右半部分向右飘出+燃烧 */}
+                <div style={{
+                  position: 'absolute',
+                  right: 0, top: 0,
+                  width: '50%', height: '100%',
+                  background: 'linear-gradient(90deg, rgba(255,215,0,0.15) 0%, transparent 100%)',
+                  animation: 'cardSplitRight 0.6s ease-out forwards',
+                  animationDelay: '0.35s'
+                }} />
+              </div>
+              
+              {/* 从裂纹两侧喷出的火焰粒子 */}
+              {[...Array(12)].map((_, idx) => {
+                const isLeft = idx % 2 === 0;
+                const xPos = isLeft ? 45 + Math.random() * 5 : 50 + Math.random() * 5;
+                return (
+                  <div key={`split-fire-${idx}`}
+                       style={{
+                         position: 'absolute',
+                         left: xPos + '%',
+                         top: `${Math.random() * 100}%`,
+                         width: `${4 + Math.random() * 3}px`,
+                         height: `${4 + Math.random() * 3}px`,
+                         borderRadius: '50%',
+                         background: `hsl(${30 + Math.random() * 20}, 100%, ${65 - Math.random() * 25}%)`,
+                         boxShadow: `0 0 10px rgba(255,${100 + Math.random() * 55},0,0.8)`,
+                         animation: `splitFireShoot ${0.6 + Math.random() * 0.3}s ease-out forwards`,
+                         animationDelay: `${0.4 + idx * 0.05}s`,
+                         transform: `translate(-50%, -50%)`
+                       }} />
+                );
+              })}
+            </>
+          )}
+          
+          {/* ⛰️ 泰山压顶 - 5块大型石头依次下落停留 */}
+          {uid === 1 && (
+            <>
+              {/* 卡片被压暗效果 */}
+              <div style={{
+                position: 'absolute',
+                inset: 0,
+                background: 'rgba(0, 0, 0, 0.3)',
+                animation: 'mountainPressOverlay 1.5s ease-in-out forwards',
+                pointerEvents: 'none'
+              }} />
+              
+              {/* 5块大型石头依次下落（z-index递增确保堆积） */}
+              {[0, 1, 2, 3, 4].map((idx) => {
+                const xPos = 20 + (idx % 3) * 30;  // 分散X位置
+                const colors = ['#8B6914', '#9b7c1e', '#B8860B', '#DAA520', '#A0826D'];
+                const color = colors[idx];
+                const delay = idx * 0.35;  // 每块石头延迟0.35秒
+                
+                return (
+                  <div key={`big-stone-${idx}`}
+                       style={{
+                         position: 'absolute',
+                         left: xPos + '%',
+                         top: '-120px',
+                         transform: 'translateX(-50%)',
+                         width: '200px',
+                         height: '120px',
+                         background: `linear-gradient(135deg, ${color} 0%, ${color}dd 50%, ${color}99 100%)`,
+                         border: `2px solid ${color}aa`,
+                         borderRadius: '8px',
+                         boxShadow: `inset -3px -3px 6px rgba(0,0,0,0.5), 0 3px 8px rgba(0,0,0,0.4)`,
+                         animation: `stoneGravityFall ${0.7 + idx * 0.05}s ease-in forwards`,
+                         animationDelay: `${delay}s`,
+                         zIndex: 40 + idx,
+                         opacity: 0.9
+                       }} />
+                );
+              })}
+            </>
+          )}
+          
+          {/* 🔨 碎空 - 8条辐射裂纹+碎片飞溅+卡片扭曲 */}
+          {uid === 2 && (
+            <>
+              {/* 卡片扭曲效果 */}
+              <div style={{
+                position: 'absolute',
+                inset: 0,
+                animation: 'cardDistortShatter 0.6s ease-out forwards',
+                pointerEvents: 'none'
+              }} />
+              
+              {/* 8条辐射裂纹线（22.5°间隔） */}
+              {[...Array(8)].map((_, idx) => {
+                const angle = (idx / 8) * Math.PI * 2;
+                const rotation = (angle * 180) / Math.PI;
+                return (
+                  <div key={`radial-crack-${idx}`}
+                       style={{
+                         position: 'absolute',
+                         left: '50%',
+                         top: '50%',
+                         width: '80px',
+                         height: '3px',
+                         background: 'linear-gradient(90deg, rgba(123,104,238,0) 0%, rgba(200,180,255,1) 30%, rgba(123,104,238,0.8) 50%, rgba(200,180,255,1) 70%, rgba(123,104,238,0) 100%)',
+                         boxShadow: `0 0 12px rgba(123,104,238,0.8), 0 0 6px rgba(255,255,255,0.6)`,
+                         transformOrigin: '0 50%',
+                         transform: `translateY(-50%) rotate(${rotation}deg)`,
+                         animation: `crackRadiateExpand 0.5s ease-out forwards`,
+                         animationDelay: `${idx * 0.04}s`,
+                         zIndex: 50 + idx
+                       }} />
+                );
+              })}
+              
+              {/* 紫色碎片从中心向8个方向飞溅 */}
+              {[...Array(8)].map((_, idx) => {
+                const angle = (idx / 8) * Math.PI * 2;
+                return [...Array(5)].map((_, pidx) => (
+                  <div key={`shatter-spray-${idx}-${pidx}`}
+                       style={{
+                         position: 'absolute',
+                         left: '50%',
+                         top: '50%',
+                         width: `${6 + Math.random() * 4}px`,
+                         height: `${6 + Math.random() * 4}px`,
+                         borderRadius: '50%',
+                         background: `hsl(${260 + Math.random() * 20}, 80%, ${50 + Math.random() * 30}%)`,
+                         boxShadow: `0 0 ${8 + Math.random() * 4}px rgba(123,104,238,0.8)`,
+                         animation: `shatterSprayShoot ${0.7 + Math.random() * 0.3}s ease-out forwards`,
+                         animationDelay: `${0.15 + idx * 0.05 + pidx * 0.08}s`,
+                         transform: `translate(-50%, -50%) rotate(${angle}rad)`
+                       }} />
+                ));
+              })}
+            </>
+          )}
+          
+          {/* ☄️ 火弩箭 - 5支箭穿洞+焦灼 */}
+          {uid === 3 && (
+            <>
+              {/* 5支火弩箭依次射下 */}
+              {[0, 1, 2, 3, 4].map((idx) => {
+                const xPos = 15 + (idx % 5) * 17.5;  // 均匀分散
+                const delay = idx * 0.2;  // 0.2s间隔
+                return (
+                  <div key={`arrow-${idx}`}
+                       style={{
+                         position: 'absolute',
+                         left: xPos + '%',
+                         top: '-80px',
+                         transform: 'translateX(-50%)',
+                         width: '18px',
+                         height: '50px',
+                         background: 'linear-gradient(180deg, #FF6B35 0%, #FF8C00 50%, #FF4500 100%)',
+                         clipPath: 'polygon(50% 0%, 100% 35%, 75% 100%, 50% 85%, 25% 100%, 0% 35%)',
+                         boxShadow: '0 0 20px rgba(255, 107, 53, 0.9)',
+                         animation: `arrowPierceFall 0.6s ease-in forwards`,
+                         animationDelay: `${delay}s`,
+                         zIndex: 70 - idx
+                       }} />
+                );
+              })}
+              
+              {/* 5个破洞喷火 - 五角形排列 */}
+              {[0, 1, 2, 3, 4].map((idx) => {
+                const angle = (idx / 5) * Math.PI * 2;
+                const x = 50 + Math.cos(angle) * 28;
+                const y = 50 + Math.sin(angle) * 28;
+                const burnDelay = 0.2 + idx * 0.2;
+                
+                return (
+                  <div key={`burn-hole-${idx}`}
+                       style={{
+                         position: 'absolute',
+                         left: x + '%',
+                         top: y + '%',
+                         transform: 'translate(-50%, -50%)',
+                         width: '45px',
+                         height: '45px',
+                         borderRadius: '50%',
+                         background: `radial-gradient(circle at 40% 30%, 
+                           rgba(255,255,150,0.8) 0%, 
+                           rgba(255,165,0,0.7) 35%, 
+                           rgba(255,69,0,0.5) 65%,
+                           rgba(100,20,0,0.3) 100%)`,
+                         boxShadow: `0 0 30px rgba(255,140,0,0.95), 
+                           inset -2px -2px 8px rgba(0,0,0,0.6),
+                           0 0 15px rgba(255,200,100,0.5)`,
+                         animation: `fireHoleGlow 0.6s ease-out forwards`,
+                         animationDelay: `${burnDelay}s`,
+                         zIndex: 45 + idx
+                       }} />
+                );
+              })}
+              
+              {/* 卡片焦灼覆盖层 - 从中心扩散至全卡片 */}
+              <div style={{
+                position: 'absolute',
+                inset: 0,
+                background: `radial-gradient(ellipse at 50% 50%, 
+                  rgba(255,140,0,0.2) 0%, 
+                  rgba(255,100,0,0.3) 40%, 
+                  rgba(220,50,0,0.25) 100%)`,
+                animation: `cardBurnScorchOverlay 1.2s ease-out forwards`,
+                animationDelay: '0.4s',
+                pointerEvents: 'none'
+              }} />
+              
+              {/* 火焰粒子从5个洞喷出 */}
+              {[0, 1, 2, 3, 4].map((holeIdx) => {
+                const angle = (holeIdx / 5) * Math.PI * 2;
+                const x = 50 + Math.cos(angle) * 28;
+                const y = 50 + Math.sin(angle) * 28;
+                
+                return [...Array(8)].map((_, pidx) => {
+                  const pAngle = angle + (Math.random() - 0.5) * Math.PI * 0.5;
+                  return (
+                    <div key={`fire-spray-${holeIdx}-${pidx}`}
+                         style={{
+                           position: 'absolute',
+                           left: x + '%',
+                           top: y + '%',
+                           width: '5px',
+                           height: '5px',
+                           borderRadius: '50%',
+                           background: `hsl(${25 + Math.random() * 15}, 100%, ${65 - Math.random() * 25}%)`,
+                           boxShadow: `0 0 12px rgba(255,${100 + Math.random() * 55},0,0.8)`,
+                           animation: `fireSprayShot ${0.7 + Math.random() * 0.3}s ease-out forwards`,
+                           animationDelay: `${0.25 + holeIdx * 0.2 + pidx * 0.05}s`,
+                           transform: `translate(-50%, -50%) rotate(${pAngle}rad)`
+                         }} />
+                  );
+                });
+              })}
+            </>
+          )}
+          
+          {/* ⚡ 雷鸣 - 3道闪电焦痕+电灼overlay+反色闪烁 */}
+          {uid === 4 && (
+            <>
+              {/* 卡片反色闪烁（3次闪烁） */}
+              <div style={{
+                position: 'absolute',
+                inset: 0,
+                animation: 'cardLightningFlash 0.6s ease-in-out forwards',
+                animationDelay: '0.2s',
+                pointerEvents: 'none'
+              }} />
+              
+              {/* 3条天雷闪电焦痕炙刻 */}
+              {[0, 1, 2].map((idx) => {
+                const startX = 20 + idx * 30;  // 从左/中/右3个位置
+                const startY = -50;
+                const endX = startX + (idx === 0 ? 0 : idx === 1 ? -15 : 15);  // 斜角
+                const endY = 100;
+                
+                return (
+                  <div key={`lightning-bolt-${idx}`}
+                       style={{
+                         position: 'absolute',
+                         left: startX + '%',
+                         top: startY + 'px',
+                         width: '3px',
+                         height: '150%',
+                         background: `linear-gradient(180deg, 
+                           rgba(100,200,255,0) 0%,
+                           rgba(100,200,255,0.9) 15%,
+                           rgba(0,100,255,0.95) 50%,
+                           rgba(50,150,255,0.8) 85%,
+                           rgba(100,200,255,0) 100%)`,
+                         boxShadow: `0 0 15px rgba(100,200,255,0.9), 
+                           0 0 30px rgba(0,100,255,0.6)`,
+                         animation: `lightningBoltStrike ${0.4}s ease-in forwards`,
+                         animationDelay: `${0.3 + idx * 0.15}s`,
+                         zIndex: 60 - idx,
+                         filter: 'blur(0.5px)'
+                       }} />
+                );
+              })}
+              
+              {/* 3条闪电焦痕标记 - 细线（保留痕迹） */}
+              {[0, 1, 2].map((idx) => {
+                const xPos = 20 + idx * 30;
+                return (
+                  <div key={`scorch-mark-${idx}`}
+                       style={{
+                         position: 'absolute',
+                         left: xPos + '%',
+                         top: 0,
+                         bottom: 0,
+                         width: '2px',
+                         background: 'linear-gradient(180deg, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.3) 35%, rgba(100,100,100,0.25) 65%, rgba(0,0,0,0.35) 100%)',
+                         boxShadow: '0 0 8px rgba(50,50,50,0.5)',
+                         animation: `scorchMarkFade 1s ease-out forwards`,
+                         animationDelay: `${0.35 + idx * 0.15}s`,
+                         zIndex: 30
+                       }} />
+                );
+              })}
+              
+              {/* 电灼overlay - 紫蓝色+焦黑点缀 */}
+              <div style={{
+                position: 'absolute',
+                inset: 0,
+                background: `linear-gradient(135deg, 
+                  rgba(100,150,200,0.15) 0%,
+                  rgba(80,100,200,0.2) 50%,
+                  rgba(60,80,150,0.1) 100%)`,
+                animation: `electricBurnOverlay 1s ease-out forwards`,
+                animationDelay: '0.4s',
+                pointerEvents: 'none'
+              }} />
+              
+              {/* 电弧残留闪光粒子 */}
+              {[...Array(15)].map((_, idx) => {
+                const xPos = 10 + Math.random() * 80;
+                const yPos = Math.random() * 100;
+                return (
+                  <div key={`electric-spark-${idx}`}
+                       style={{
+                         position: 'absolute',
+                         left: xPos + '%',
+                         top: yPos + '%',
+                         width: `${2 + Math.random() * 3}px`,
+                         height: `${2 + Math.random() * 3}px`,
+                         borderRadius: '50%',
+                         background: `hsl(${200 + Math.random() * 30}, 100%, ${60 + Math.random() * 30}%)`,
+                         boxShadow: `0 0 ${6 + Math.random() * 4}px rgba(100,150,255,0.9)`,
+                         animation: `electricSparkFade ${0.4 + Math.random() * 0.2}s ease-out forwards`,
+                         animationDelay: `${0.35 + Math.random() * 0.3}s`,
+                         transform: `translate(-50%, -50%)`
+                       }} />
+                );
+              })}
+            </>
+          )}
+        </div>
+      );
+    }
+    return null;
+  };
+
+  // --- 50% 严格无缝人像卡片渲染 ---
+  const renderHalfScreenCard = (side, player, color, trophies, isReady, isDead, hpCount) => {
+    const isLeft = side === 'left';
+    const maxHP = 3;
+    const hpPct = Math.max(0, Math.min(1, hpCount / maxHP)) * 100;
+    const isLowHP = hpCount <= 1 && hpCount > 0;
+
+    // 计算等级边框
+    let rankClass = '';
+    if (hpCount >= 3) rankClass = 'card-rank-gold';
+    else if (hpCount >= 2) rankClass = 'card-rank-silver';
+    else if (hpCount >= 1) rankClass = 'card-rank-bronze';
+
+    // 计算卡片自身的物理响应形变
+    let physicalClass = '';
+    if (gameState === 'ultimate_impact' || gameState === 'result') {
+       if (actionEffect?.side === side) {
+          if (actionEffect.type === 'miss') physicalClass = 'react-injury';
+          else if (actionEffect.type === 'hit') physicalClass = ULTIMATE_INFO[actionEffect.ultimateId].reactClass;
+       } else if (actionEffect?.type === 'hit' && actionEffect?.attacker === side) {
+          if (actionEffect.ultimateId === 3) physicalClass = 'react-cast-shake';
+       }
+    }
+
+    // 判定当前阶段是否应该置灰：只在result阶段且确认死亡时置灰
+    const shouldBeGrayscale = gameState === 'result' && deadSide === side;
+    const isDeathExiting = shouldBeGrayscale && gameState === 'result';
+    const isHPLossing = gameState === 'result' && actionEffect?.side === side && actionEffect?.type === 'hit' && deadSide !== side;
+
+    return (
+      <div className={`half-card ${rankClass} ${isLeft ? 'half-card-left border-r-[12px] border-[#111]' : 'half-card-right'}`}>
+
+        {/* 静态裁剪层：不参与形变，确保 overflow:hidden 对 filter 子元素有效 */}
+        <div className="absolute inset-0 overflow-hidden">
+          {/* 底层物理形变主卡片 (背景与主体共进退) */}
+          <div className={`absolute inset-0 w-full h-full flex flex-col items-center transition-colors duration-500 origin-center ${physicalClass} ${isDeathExiting ? 'death-exit-animation' : ''} ${isHPLossing ? 'hp-loss-pulse' : ''}`}
+               style={{ backgroundColor: shouldBeGrayscale ? '#888' : color, filter: shouldBeGrayscale ? 'grayscale(1) brightness(0.65)' : 'none' }}>
+
+           {/* 卡片内部视觉特效层 (被 overflow-hidden 截断) */}
+           {renderVFXInsideCard(side)}
+
+           {/* 姓名定位于上方 20% - 印章风格 */}
+           <h2 className={`absolute top-[20%] w-full text-center text-[15vh] font-black tracking-widest z-20 ${shouldBeGrayscale ? 'text-gray-600' : 'text-white'}`}
+               style={{
+                 textShadow: shouldBeGrayscale ? 'none' : '0 8px 0 rgba(0,0,0,0.4), 0 0 20px rgba(255,255,255,0.3)',
+                 filter: shouldBeGrayscale ? 'grayscale(1)' : 'drop-shadow(0 0 10px rgba(255,255,255,0.5))'
+               }}>
+              {player?.name}
+           </h2>
+
+           {/* 交互按钮定位于下方 10% - 印章/竹简风格 */}
+           <div className="absolute bottom-[10%] w-full flex justify-center z-50">
+              {gameState === 'ready' && !isReady && !isDead && (
+                <button onClick={() => handleReady(side)}
+                        className="w-2/3 py-[4vh] text-[6vh] bg-white text-[#2C2C2C] btn-switch font-black tracking-widest"
+                        style={{
+                          background: 'linear-gradient(135deg, #F8F4E6 0%, #fff 50%, #F8F4E6 100%)',
+                          boxShadow: '0 8px 0 #2C2C2C, inset 0 2px 4px rgba(255,255,255,0.5), 0 0 20px rgba(240,194,57,0.3)'
+                        }}>
+                  准备
+                </button>
+              )}
+              {gameState === 'ready' && isReady && !isDead && (
+                <button disabled
+                        className="w-2/3 py-[4vh] text-[6vh] text-gray-500 btn-switch font-black tracking-widest"
+                        style={{
+                          background: 'linear-gradient(135deg, #E0E0E0 0%, #D0D0D0 50%, #E0E0E0 100%)',
+                          boxShadow: '0 0 0 #2C2C2C, inset 0 2px 4px rgba(0,0,0,0.2)'
+                        }}>
+                  就绪
+                </button>
+              )}
+              {gameState === 'battle' && !isDead && (
+                <button onClick={() => handleAttack(side)}
+                        className="w-5/6 py-[5vh] text-[7vh] bg-white text-[#2C2C2C] btn-switch tracking-widest overflow-hidden whitespace-nowrap px-[2vw] font-black"
+                        style={{
+                          background: 'linear-gradient(135deg, #F8F4E6 0%, #fff 50%, #F8F4E6 100%)',
+                          boxShadow: '0 8px 0 #2C2C2C, inset 0 2px 4px rgba(255,255,255,0.5), 0 0 30px rgba(240,194,57,0.5)',
+                          animation: 'pulse 1s ease-in-out infinite'
+                        }}>
+                   {displayedOption || '...'}
+                </button>
+              )}
+           </div>
+
+           {/* 老虎机覆盖层 - 卷轴风格 */}
+           {gameState === 'slot_machine' && deadSide === side && (
+             <div className="absolute inset-0 backdrop-blur-md flex flex-col items-center justify-center z-[120]"
+                  style={{
+                    background: 'linear-gradient(135deg, rgba(248,244,230,0.95) 0%, rgba(255,255,255,0.95) 100%)'
+                  }}>
+                <span className="text-white bg-[#C93756] px-6 py-2 rounded-full mb-[2vh] text-[3vh] tracking-widest font-black border-4 border-[#2C2C2C]"
+                      style={{boxShadow: '4px 4px 0 #2C2C2C, 0 0 20px rgba(201,55,86,0.5)'}}>
+                  新魂降临
+                </span>
+                <span className="text-[12vh] text-[#2C2C2C] font-black tracking-widest mt-8 mb-16"
+                      style={{
+                        textShadow: '4px 4px 0 rgba(240,194,57,0.5)',
+                        filter: 'drop-shadow(0 0 10px rgba(240,194,57,0.3))'
+                      }}>
+                  {slotName}
+                </span>
+                <button onClick={stopSlotMachine}
+                        className="px-[8vh] py-[3vh] text-[5vh] text-[#2C2C2C] btn-switch font-black tracking-widest"
+                        style={{
+                          background: 'linear-gradient(135deg, #F0C239 0%, #FFD700 50%, #F0C239 100%)',
+                          boxShadow: '0 8px 0 #2C2C2C, inset 0 2px 4px rgba(255,255,255,0.5), 0 0 30px rgba(240,194,57,0.6)'
+                        }}>
+                  定格
+                </button>
+             </div>
+           )}
+        </div>
+        {/* 静态裁剪层闭合 */}
+        </div>
+
+        {/* 分割线（不参与形变） */}
+        <div className={`divider-line ${isLeft ? 'divider-line-left' : 'divider-line-right'}`} />
+
+        {/* 血条 HP Bar（不参与形变，始终清晰） */}
+        {!shouldBeGrayscale && (
+          <div className={`absolute top-[3vh] ${isLeft ? 'right-[3vh]' : 'left-[3vh]'} z-50`}
+               style={{ width: '30%' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+              {Array.from({ length: Math.max(0, hpCount) }).map((_, i) => (
+                <span key={i} style={{ fontSize: '2.5vh', filter: 'drop-shadow(0 0 6px rgba(201,55,86,0.8))' }}>❤️</span>
+              ))}
+            </div>
+            <div className="hp-bar-track">
+              <div className={`hp-bar-fill ${isLowHP ? 'low' : ''}`} style={{ width: `${hpPct}%` }} />
+            </div>
+          </div>
+        )}
+
+        {/* 擂主标记 */}
+        {champSide === side && (
+          <div className="champion-badge" />
+        )}
+      </div>
+    );
+  };
+
+  const isLeftDead = leftHP <= 0 && gameState !== 'setup' && gameState !== 'ready';
+  const isRightDead = rightHP <= 0 && gameState !== 'setup' && gameState !== 'ready';
+
+  // --- Setup / Gameover UI ---
+  if (gameState === 'setup') {
+    return (
+      <div className="w-screen h-screen bg-[#111] flex items-center justify-center overflow-hidden font-sans">
+        <style>{customStyles}</style>
+        {renderQBankSidebar()}
+        <div className="relative flex flex-col items-center justify-center p-8 bg-theme-ink transition-colors duration-1000 theme-ink overflow-hidden"
+             style={{ aspectRatio: '16/9', width: 'min(100vw, 177.77vh)', height: 'min(100vh, 56.25vw)' }}>
+          {renderBackground()}
+          <h1 className="text-[14vh] font-black text-[#2C2C2C] tracking-widest mb-4 z-10 font-zhi"
+              style={{
+                textShadow: '6px 6px 0 rgba(240,194,57,0.6), 0 0 30px rgba(240,194,57,0.3)',
+                filter: 'drop-shadow(0 0 20px rgba(240,194,57,0.4))'
+              }}>
+            武林诗词
+          </h1>
+          <p className="text-[3.5vh] text-[#2C2C2C] px-8 py-2 rounded-full border-[6px] border-[#2C2C2C] mb-12 tracking-widest font-bold z-10"
+             style={{
+               background: 'linear-gradient(135deg, #F8F4E6 0%, #fff 50%, #F8F4E6 100%)',
+               boxShadow: '6px 6px 0 #2C2C2C, 0 0 20px rgba(240,194,57,0.3)'
+             }}>
+            华山论剑 · 卡通中国风
+          </p>
+          <div className="space-y-6 text-left mb-12 flex gap-8 w-2/3 z-10">
+            <div className="flex-1 p-8 relative rounded-[40px] transform -rotate-2 hover:rotate-0 transition"
+                 style={{
+                   background: 'linear-gradient(135deg, #F8F4E6 0%, #fff 50%, #F8F4E6 100%)',
+                   border: '6px solid #2C2C2C',
+                   boxShadow: '8px 8px 0 #2C2C2C'
+                 }}>
+              <div className="absolute -top-[2.5vh] left-[3vh] px-6 py-1 text-white font-black text-[2.5vh] border-[6px] border-[#2C2C2C] rounded-full"
+                   style={{
+                     background: 'linear-gradient(135deg, #F0C239 0%, #FFD700 50%, #F0C239 100%)',
+                     boxShadow: '4px 4px 0 #2C2C2C'
+                   }}>
+                名册导入
+              </div>
+              <input type="file" accept=".xlsx, .xls" onChange={handleFileUpload}
+                     className="w-full mt-4 text-[#2C2C2C] font-bold cursor-pointer file:mr-4 file:py-2 file:px-6 file:border-[6px] file:border-[#2C2C2C] file:rounded-full file:text-white file:font-black hover:file:brightness-110 transition"
+                     style={{
+                       filter: 'none'
+                     }} />
+            </div>
+            <div className="flex-1 p-8 relative rounded-[40px] transform rotate-2 hover:rotate-0 transition"
+                 style={{
+                   background: 'linear-gradient(135deg, #F8F4E6 0%, #fff 50%, #F8F4E6 100%)',
+                   border: '6px solid #2C2C2C',
+                   boxShadow: '8px 8px 0 #2C2C2C'
+                 }}>
+              <div className="absolute -top-[2.5vh] left-[3vh] px-6 py-1 text-white font-black text-[2.5vh] border-[6px] border-[#2C2C2C] rounded-full"
+                   style={{
+                     background: 'linear-gradient(135deg, #789262 0%, #8FA872 50%, #789262 100%)',
+                     boxShadow: '4px 4px 0 #2C2C2C'
+                   }}>
+                决战时间
+              </div>
+              <div className="flex items-center gap-6 mt-6">
+                <input type="range" min="60" max="1200" step="60" value={totalTime} onChange={(e)=>setTotalTime(Number(e.target.value))}
+                       className="w-full h-[2vh] bg-[#2C2C2C] rounded-full appearance-none cursor-pointer" />
+                <span className="font-black text-[4vh] text-[#2C2C2C] w-24">{totalTime / 60} 刻</span>
+              </div>
+            </div>
+          </div>
+          <button onClick={startGame}
+                  className="w-1/2 py-[3vh] text-white text-[6vh] font-black tracking-[0.5em] pl-[0.5em] btn-switch z-10"
+                  style={{
+                    background: 'linear-gradient(135deg, #C93756 0%, #E84A6F 50%, #C93756 100%)',
+                    boxShadow: '0 8px 0 #2C2C2C, inset 0 2px 4px rgba(255,255,255,0.3), 0 0 30px rgba(201,55,86,0.5)'
+                  }}>
+            起鼓开战
+          </button>
+          <div className="mt-4 text-[2vh] text-[#2C2C2C] opacity-60 z-10 tracking-widest">
+            当前题库：{questions.length} 题 · 点击左侧「题库箱」可更换
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (gameState === 'gameover') {
+    const sorted = [...students].sort((a,b)=>b.score-a.score);
+    return (
+      <div className="w-screen h-screen bg-[#111] flex items-center justify-center font-sans">
+        <style>{customStyles}</style>
+           <div className="relative flex flex-col items-center justify-center p-8 theme-bamboo bg-theme-bamboo overflow-hidden"
+                style={{ aspectRatio: '16/9', width: 'min(100vw, 177.77vh)', height: 'min(100vh, 56.25vw)' }}>
+           {renderBackground()}
+           <h1 className="text-[12vh] font-black text-[#2C2C2C] mb-[4vh] tracking-widest z-10 font-zhi"
+               style={{
+                 textShadow: '6px 6px 0 rgba(120,146,98,0.6), 0 0 30px rgba(120,146,98,0.3)',
+                 filter: 'drop-shadow(0 0 20px rgba(120,146,98,0.4))'
+               }}>
+             武林金榜
+           </h1>
+           <div className="p-8 w-2/3 max-h-[60vh] overflow-y-auto rounded-[40px] z-10"
+                style={{
+                  background: 'linear-gradient(135deg, #F8F4E6 0%, #fff 50%, #F8F4E6 100%)',
+                  border: '8px solid #2C2C2C',
+                  boxShadow: '10px 10px 0 #2C2C2C'
+                }}>
+             {sorted.map((s,i) => (
+               <div key={i} className="flex justify-between text-[#2C2C2C] text-[4.5vh] font-black py-4 border-b-[6px] border-[#2C2C2C] border-dashed last:border-0 items-center">
+                 <span className="w-20 text-[5vh] text-white border-[4px] border-[#2C2C2C] text-center rounded-2xl"
+                       style={{
+                         background: i === 0 ? 'linear-gradient(135deg, #F0C239 0%, #FFD700 50%, #F0C239 100%)' :
+                                     i === 1 ? 'linear-gradient(135deg, #C0C0C0 0%, #E0E0E0 50%, #C0C0C0 100%)' :
+                                     i === 2 ? 'linear-gradient(135deg, #CD7F32 0%, #E89A5A 50%, #CD7F32 100%)' :
+                                     'linear-gradient(135deg, #C93756 0%, #E84A6F 50%, #C93756 100%)',
+                         boxShadow: '4px 4px 0 #2C2C2C'
+                       }}>
+                   {i+1}
+                 </span>
+                 <span className="flex-1 text-center tracking-widest">{s.name}</span>
+                 <span style={{color: '#789262'}}>{s.score} 分</span>
+               </div>
+             ))}
+           </div>
+           <button onClick={()=>window.location.reload()}
+                   className="mt-[5vh] px-16 py-[2.5vh] text-white text-[4.5vh] font-black btn-switch tracking-widest z-10"
+                   style={{
+                     background: 'linear-gradient(135deg, #177CB0 0%, #2A9FD6 50%, #177CB0 100%)',
+                     boxShadow: '0 8px 0 #2C2C2C, inset 0 2px 4px rgba(255,255,255,0.3), 0 0 30px rgba(23,124,176,0.5)'
+                   }}>
+             再战江湖
+           </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="w-screen h-screen bg-[#111] flex items-center justify-center overflow-hidden font-sans select-none">
+      <style>{customStyles}</style>
+      
+      {/* 核心 16:9 画布：三系明亮国风背景 */}
+      <div className={`relative theme-${currentTheme} bg-theme-${currentTheme} flex flex-col overflow-hidden`}
+           style={{ aspectRatio: '16/9', width: 'min(100vw, 177.77vh)', height: 'min(100vh, 56.25vw)' }}>
+        
+        {renderBackground()}
+
+        {/* === 左右 100% 极致无缝版面布局 === */}
+        <div className="no-gap-container">
+          {renderHalfScreenCard('left', leftPlayer, leftColor, leftTrophies, leftReady, isLeftDead, leftHP)}
+          {renderHalfScreenCard('right', rightPlayer, rightColor, rightTrophies, rightReady, isRightDead, rightHP)}
+        </div>
+
+        {/* === 顶部 HUD - 铜钟造型 === */}
+        <div className="absolute top-[4vh] left-0 w-full z-[150] flex justify-center pointer-events-none">
+          <div className="flex flex-col items-center px-[5vh] py-[1vh] border-[8px] border-[#2C2C2C] rounded-full"
+               style={{
+                 background: 'linear-gradient(135deg, #F8F4E6 0%, #fff 50%, #F8F4E6 100%)',
+                 boxShadow: '8px 8px 0 #2C2C2C, inset 0 2px 4px rgba(255,255,255,0.5), 0 0 20px rgba(240,194,57,0.3)'
+               }}>
+            <div className="text-[5vh] font-black text-[#2C2C2C] tracking-[0.2em]">{formatTime(timeRemaining)}</div>
+            {currentStreak > 0 && (
+              <div className="text-[2vh] mt-1 font-black tracking-widest flex items-center gap-1"
+                   style={{
+                     color: '#C93756',
+                     textShadow: '0 0 10px rgba(201,55,86,0.5)',
+                     filter: 'drop-shadow(0 0 5px rgba(201,55,86,0.3))'
+                   }}>
+                🔥 连胜 {currentStreak}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* 题目展示区 (居中置顶) - 卷轴风格 */}
+        {(gameState === 'question_reveal' || gameState === 'battle' || gameState === 'result' || gameState === 'ultimate_impact') && (
+          <div className="absolute top-[20vh] left-1/2 -translate-x-1/2 z-[100] px-[6vw] py-[2vh] border-[8px] border-[#2C2C2C] rounded-full pointer-events-none text-center whitespace-nowrap"
+               style={{
+                 background: 'linear-gradient(135deg, #FFFDF7 0%, #FFF9E6 50%, #FFFDF7 100%)',
+                 boxShadow: '8px 8px 0 #2C2C2C, inset 0 2px 4px rgba(240,194,57,0.2), 0 0 30px rgba(240,194,57,0.3)'
+               }}>
+             <h3 className="text-[4.5vh] font-black text-[#2C2C2C] tracking-[0.2em]"
+                 style={{
+                   textShadow: '2px 2px 0 rgba(240,194,57,0.3)'
+                 }}>
+               {questions[currentQIndex]?.q}
+             </h3>
+          </div>
+        )}
+
+        {/* 结果平局展示 */}
+        <div className="absolute top-0 left-0 w-full h-full z-[100] pointer-events-none flex flex-col items-center justify-center">
+          {gameState === 'result' && actionEffect?.type === 'tie' && (
+             <div className="absolute top-[50vh] left-1/2 -translate-x-1/2 -translate-y-1/2 text-center animate-pop z-[150]">
+                <div className="text-[10vh] font-black text-[#2C2C2C] tracking-[0.5em] px-16 py-6 rounded-[40px] border-[10px] border-[#2C2C2C]"
+                     style={{
+                       background: 'linear-gradient(135deg, #F8F4E6 0%, #fff 50%, #F8F4E6 100%)',
+                       boxShadow: '15px 15px 0 #2C2C2C, inset 0 4px 8px rgba(255,255,255,0.5), 0 0 40px rgba(240,194,57,0.4)',
+                       textShadow: '4px 4px 0 rgba(240,194,57,0.5)'
+                     }}>
+                  平 局
+                </div>
+             </div>
+          )}
+        </div>
+
+        {/* === 漫画全屏黑色斜切蒙版 Cut-in 大招特写 === */}
+        {gameState === 'ultimate_cutin' && ultimateName && (
+          <div className="cutin-mask">
+             <div className="cutin-stripe">
+                 <span className="cutin-text">{ultimateName.name}</span>
+             </div>
+          </div>
+        )}
+
+      </div>
+    </div>
+  );
+}
+const root = ReactDOM.createRoot(document.getElementById('root'));
+try {
+  root.render(<App />);
+} catch(e) {
+  document.getElementById('root').innerHTML = '<div style="color:red;padding:20px;font-size:16px;">❌ 应用启动失败: ' + e.message + '<br/>请检查浏览器控制台（F12）查看详细错误信息</div>';
+}
+  </script>
+</body>
+</html>

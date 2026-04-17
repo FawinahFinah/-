@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文言消除游戏</title>
+    <style>
+        /* 基础重置与背景 */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Microsoft YaHei', sans-serif;
+        }
+
+        body {
+            /* 页面背景保持原样 */
+            background: url('image1.png') no-repeat center center fixed;
+            background-size: cover;
+            min-height: 100vh;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        :root {
+            --sidebar-width: 0;
+            --score-panel-width: 260px;
+        }
+
+        /* 侧边栏系统 */
+        #toggle-sidebar {
+            position: fixed;
+            left: 0;
+            top: 20px;
+            z-index: 1000;
+            padding: 10px 25px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 0 8px 8px 0;
+            box-shadow: 2px 2px 12px rgba(0,0,0,0.2);
+            cursor: pointer;
+            transition: transform 0.3s ease;
+        }
+
+        #sidebar {
+            position: fixed;
+            left: -300px;
+            top: 0;
+            width: 300px;
+            height: 100%;
+            background: rgba(255,255,255,0.95);
+            box-shadow: 4px 0 20px rgba(0,0,0,0.15);
+            transition: left 0.3s ease;
+            z-index: 999;
+            padding: 25px 20px;
+            backdrop-filter: blur(5px);
+            border-radius: 0 20px 20px 0;
+        }
+
+        #sidebar.hidden {
+            left: -300px;
+        }
+
+        #sidebar:not(.hidden) {
+            left: 0;
+        }
+
+        /* 题库输入框美化 */
+        .input-group textarea, .input-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e1e5ea;
+            border-radius: 12px;
+            resize: vertical;
+            font-size: 14px;
+            white-space: pre-wrap;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.03);
+            transition: all 0.3s ease;
+        }
+
+        .input-group textarea:focus, .input-group input:focus {
+            outline: none;
+            border-color: #4CAF50;
+            box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.2);
+        }
+        
+        .input-group {
+            margin-bottom: 15px;
+        }
+        
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #555;
+        }
+
+        /* --- 卡片核心样式优化 --- */
+        #game-board {
+            position: fixed;
+            left: var(--sidebar-width);
+            right: var(--score-panel-width);
+            top: 80px;
+            bottom: 20px;
+            border: 2px dashed rgba(0,0,0,0.3);
+            border-radius: 16px;
+            overflow: hidden;
+        }
+
+        .card {
+            position: absolute;
+            width: 180px;
+            height: 180px;    
+            border-radius: 16px; 
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            padding: 16px;
+            font-size: 20px;
+            line-height: 1.4;
+            color: #333;
+            text-align: center;
+            user-select: none;
+            overflow: hidden; /* 防止装饰溢出 */
+            
+            /* 通用阴影：增加立体感 */
+            box-shadow: 
+                0 4px 6px rgba(0,0,0,0.05),
+                0 10px 15px rgba(0,0,0,0.1),
+                inset 0 0 0 1px rgba(255,255,255,0.5); 
+        }
+
+        /* --- 装饰元素（水印）通用设置 --- */
+        .card::after {
+            position: absolute;
+            bottom: -5px;
+            right: 5px;
+            font-size: 60px;
+            opacity: 0.15; /* 半透明水印 */
+            pointer-events: none;
+            z-index: 0;
+            font-family: "Segoe UI Emoji", "Apple Color Emoji", sans-serif;
+            transform: rotate(-15deg);
+        }
+
+        .card span {
+            position: relative;
+            z-index: 1; /* 确保文字在水印之上 */
+        }
+
+        /* --- 答案卡（白色 + 小羊） --- */
+        .card.answer {
+            background-color: #ffffff;
+            /* 浅色波点暗纹 */
+            background-image: radial-gradient(#e0e0e0 15%, transparent 16%);
+            background-size: 10px 10px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .card.answer::after {
+            content: '🐑'; /* 小羊装饰 */
+        }
+
+        /* --- 题目卡（绿色 + 小草） --- */
+        .card.question {
+            background-color: #e8f5e9; /* 浅绿底色 */
+            /* 绿色斜纹暗纹 */
+            background-image: repeating-linear-gradient(
+                45deg,
+                transparent,
+                transparent 10px,
+                rgba(76, 175, 80, 0.05) 10px,
+                rgba(76, 175, 80, 0.05) 20px
+            );
+            border: 1px solid #c8e6c9;
+        }
+
+        .card.question::after {
+            content: '🌿'; /* 小草装饰 */
+            opacity: 0.2;
+            font-size: 50px;
+            bottom: 5px;
+        }
+
+        /* 关键字高亮样式：红字加粗 */
+        .card b {
+            color: #ff4444;
+            font-weight: bold;
+            font-size: 1.1em;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* 悬停效果 */
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 30px rgba(0,0,0,0.2);
+            z-index: 100;
+        }
+
+        /* 选中效果 */
+        .card.selected {
+            transform: translateY(-15px) scale(1.05);
+            z-index: 9999;
+            /* 选中时增加辉光 */
+            box-shadow: 0 0 0 4px rgba(33, 150, 243, 0.4), 0 20px 40px rgba(0,0,0,0.3);
+            border-color: #2196F3;
+        }
+
+        /* 动画效果 */
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-8px); }
+            75% { transform: translateX(8px); }
+        }
+
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; transform: scale(0.8); }
+        }
+
+        .animate-shake {
+            animation: shake 0.4s ease-in-out;
+        }
+
+        .animate-remove {
+            animation: fadeOut 0.5s forwards;
+        }
+
+        /* 积分系统 */
+        #score-panel {
+            position: fixed;
+            right: 30px;
+            top: 20px;
+            width: 260px;
+            background: rgba(255,255,255,0.95);
+            padding: 20px;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            z-index: 998;
+            border: 1px solid rgba(255,255,255,0.5);
+        }
+
+        #leaderboard li {
+            padding: 8px 12px;
+            margin: 6px 0;
+            background: linear-gradient(45deg, rgba(0,150,136,0.9), rgba(0,188,212,0.9)) !important;
+            border-radius: 6px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        #leaderboard li.gold {
+            background: linear-gradient(45deg, #ffd70033, #ffd70066);
+            color: #c5a600;
+            font-weight: bold;
+        }
+        #leaderboard li.silver {
+            background: linear-gradient(45deg, #c0c0c033, #c0c0c066);
+            color: #7a7a7a;
+        }
+        #leaderboard li.bronze {
+            background: linear-gradient(45deg, #cd7f3233, #cd7f3266);
+            color: #a05c1b;
+        }
+        
+        .current-score {
+            margin-top: 5px;
+            font-weight: bold;
+            color: #444;
+        }
+
+        /* 结果提示 */
+        .result-modal {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0);
+            background: rgba(0,0,0,0.9);
+            color: white;
+            background: linear-gradient(135deg, #43cea2 0%, #185a9d 100%);
+            padding: 40px 60px;
+            border-radius: 20px;
+            font-size: 32px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            transition: all 0.3s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+            z-index: 2000;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.4);
+        }
+
+        .result-modal.show {
+            transform: translate(-50%, -50%) scale(1);
+        }
+
+        /* 新增开始游戏按钮样式 */
+        #start-game {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 240px;
+            height: 80px;
+            background: url('image3.png') no-repeat center center/contain;
+            border: none;
+            cursor: pointer;
+            z-index: 1001;
+            filter: drop-shadow(0 5px 15px rgba(0,0,0,0.3));
+            transition: transform 0.2s;
+        }
+        
+        #start-game:active {
+            transform: translate(-50%, -50%) scale(0.95);
+        }
+
+        /* 响应式布局 */
+        @media (max-width: 768px) {
+            #sidebar {
+                width: 260px;
+                padding: 15px;
+            }
+
+            .card {
+                width: 140px;
+                height: 140px;
+                font-size: 16px;
+                padding: 12px;
+            }
+
+            #score-panel {
+                right: 15px;
+                width: 220px;
+                padding: 15px;
+            }
+        }
+
+        /* 静音按钮 */
+        #mute-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 12px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.9);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            border: none;
+            cursor: pointer;
+            z-index: 100;
+            transition: transform 0.2s;
+        }
+        
+        #mute-btn:active {
+            transform: scale(0.9);
+        }
+
+        /* 按钮样式 */
+        .control-btn {
+            padding: 10px 20px;
+            border-radius: 20px;
+            background: #2196F3;
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-top: 10px;
+            width: 100%;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .control-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 10px rgba(33,150,243,0.3);
+        }
+        
+        .button-group button {
+            padding: 10px 20px;
+            border-radius: 8px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            width: 100%;
+            font-size: 16px;
+            margin-top: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        /* 题库列表样式微调 */
+        #saved-banks-list {
+            list-style: none;
+            margin-top: 15px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        #saved-banks-list li {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            background: #f5f5f5;
+            margin-bottom: 8px;
+            border-radius: 8px;
+            border: 1px solid #eee;
+        }
+        
+        .bank-name {
+            cursor: pointer;
+            font-weight: 500;
+            color: #333;
+        }
+        
+        .bank-name:hover {
+            color: #4CAF50;
+            text-decoration: underline;
+        }
+        
+        .delete-bank {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 1.2em;
+        }
+    </style>
+</head>
+<body>
+    <button id="toggle-sidebar" style="background:#4CAF50;color:white">题库</button>
+
+    <div id="sidebar" class="hidden">
+        <div class="sidebar-content">
+            <h2>🐑 题库管理 🐏</h2>
+            <div class="input-group">
+                <label>题库名称</label>
+                <input type="text" id="bank-name" placeholder="我的题库" maxlength="20">
+            </div>
+            <div class="input-group">
+                <label>文言词语（用**加粗字，如：世**人**）</label>
+                <textarea id="questions-input" rows="5"></textarea>
+            </div>
+            <div class="input-group">
+                <label>对应解释</label>
+                <textarea id="answers-input" rows="5"></textarea>
+            </div>
+
+            <div class="button-group">
+                <button id="run-bank" style="background: #2196F3;">运行题库</button>
+                <button id="save-bank">保存题库</button>
+            </div>
+
+            <h3>已保存题库</h3>
+            <ul id="saved-banks-list"></ul>
+        </div>
+    </div>
+
+    <div class="game-container">
+        <div id="game-board"></div>
+    </div>
+
+    <div id="score-panel">
+        <h3>🏆 英雄榜 🐑</h3>
+        <ul id="leaderboard"></ul>
+        <div id="current-user" class="current-score">当前玩家：-</div>
+        <div id="current-points" class="current-score">当前积分：0</div>
+        <button id="clear-scores" class="control-btn">清空榜单</button>
+    </div>
+
+    <div id="results" class="result-modal">
+        <h2>🎉 挑战成功！🐑</h2>
+        <p>最终得分：<span id="final-score">0</span>分</p>
+        <p>点击屏幕重新开始</p>
+    </div>
+
+    <button id="start-game"></button>
+
+    <audio id="sound1" src="sound1.mp3"></audio>
+    <audio id="sound2" src="sound2.mp3"></audio>
+    <audio id="sound3" src="sound3.mp3"></audio>
+
+    <button id="mute-btn">🔊</button>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // 全局状态
+            let savedBanks = JSON.parse(localStorage.getItem('wenyanBanks')) || [];
+            let currentUser = '匿名玩家';
+            let totalPoints = 0;
+            let leaderboard = JSON.parse(localStorage.getItem('leaderboard')) || [];
+            let currentCards = [];
+            let selectedCards = [];
+            let bgmPlaying = false;
+            let isMuted = false;
+            let streak = 0;
+            let combo = 0;
+            
+            // DOM元素
+            const elements = {
+                sidebar: document.getElementById('sidebar'),
+                toggleSidebar: document.getElementById('toggle-sidebar'),
+                questionsInput: document.getElementById('questions-input'),
+                answersInput: document.getElementById('answers-input'),
+                gameBoard: document.getElementById('game-board'),
+                sound1: document.getElementById('sound1'),
+                sound2: document.getElementById('sound2'),
+                sound3: document.getElementById('sound3')
+            };
+
+            // 初始化事件
+            initializeEventListeners();
+            renderBanksList();
+            renderLeaderboard();
+            
+            document.getElementById('mute-btn').addEventListener('click', toggleMute);
+
+            function initializeEventListeners() {
+                // 侧边栏事件
+                document.getElementById('save-bank').addEventListener('click', saveQuestionBank);
+                // 修改2：绑定运行题库事件
+                document.getElementById('run-bank').addEventListener('click', runQuestionBank);
+                
+                document.getElementById('start-game').addEventListener('click', startGame);
+                document.getElementById('clear-scores').addEventListener('click', clearLeaderboard);
+                elements.toggleSidebar.addEventListener('click', () => elements.sidebar.classList.toggle('hidden'));
+                document.getElementById('results').addEventListener('click', () => initGame(savedBanks[0]));      
+         
+                // 题库列表事件委托
+                document.getElementById('saved-banks-list').addEventListener('click', e => {
+                    if (e.target.classList.contains('bank-name')) loadBank(e.target.dataset.index);
+                    if (e.target.classList.contains('delete-bank')) deleteBank(e.target.dataset.index);
+                });
+            }
+
+            // 修改3：运行题库功能实现
+            function runQuestionBank() {
+                elements.sidebar.classList.add('hidden');
+                document.getElementById('start-game').style.display = 'block';
+            }
+
+            // 题库管理功能
+            function saveQuestionBank() {
+                // 修改4：增加 trim() 去除首尾空行
+                const questions = parseBoldText(elements.questionsInput.value.trim());
+                const answers = elements.answersInput.value.trim().split('\n').slice(0,50);
+                
+                const bankName = document.getElementById('bank-name').value || `题库${savedBanks.length + 1}`;
+                if (questions.length !== answers.length) return alert('题干与答案数量不一致！');
+                if (savedBanks.length >= 10) return alert('最多保存10个题库！');
+
+                const newBank = {
+                    name: bankName,
+                    questions,
+                    answers,
+                    timestamp: Date.now()
+                };
+
+                savedBanks.push(newBank);
+                localStorage.setItem('wenyanBanks', JSON.stringify(savedBanks));
+                renderBanksList();
+            }
+
+            function parseBoldText(text) {
+                return text.split('\n').map(line => 
+                    line.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').slice(0,50)
+                ).slice(0,50);
+            }
+
+            function loadBank(index) {
+                const bank = savedBanks[index];
+                elements.questionsInput.value = bank.questions.join('\n').replace(/<b>|<\/b>/g, '​**​');
+                elements.answersInput.value = bank.answers.join('\n');
+            }
+
+            function deleteBank(index) {
+                savedBanks.splice(index, 1);
+                localStorage.setItem('wenyanBanks', JSON.stringify(savedBanks));
+                renderBanksList();
+            }
+
+            function renderBanksList() {
+                const listHTML = savedBanks.map((bank, i) => `
+                    <li>
+                        <span class="bank-name" data-index="${i}">${bank.name} (${bank.questions.length}词)</span>
+                        <button class="delete-bank" data-index="${i}">🗑️</button>
+                    </li>
+                `).join('');
+                document.getElementById('saved-banks-list').innerHTML = listHTML;
+            }
+         
+            function toggleMute() {
+                isMuted = !isMuted;
+                elements.sound1.muted = isMuted;
+                document.getElementById('mute-btn').textContent = isMuted ? '🔇' : '🔊';
+                if (!isMuted && bgmPlaying) elements.sound1.play();
+            }
+
+            // 游戏核心逻辑
+            function startGame() {
+                elements.sound1.pause();
+                elements.sound1.currentTime = 0;
+                bgmPlaying = true;
+                elements.sound1.loop = true;
+                elements.sound1.play();
+                document.getElementById('start-game').style.display = 'none';
+                
+                // 修改5：读取数据时增加 trim()，确保直接运行题库时也能忽略空行
+                const bank = savedBanks.find(b => 
+                    b.questions.join('') === elements.questionsInput.value.trim().replace(/\*\*/g,'') &&
+                    b.answers.join('') === elements.answersInput.value.trim()
+                ) || { 
+                    questions: parseBoldText(elements.questionsInput.value.trim()), 
+                    answers: elements.answersInput.value.trim().split('\n') 
+                };
+
+                elements.sound1.volume = 0.2;
+                bgmPlaying = true;
+                currentUser = prompt('请输入玩家名：', currentUser) || currentUser;
+                initGame(bank);
+            }
+
+            function initGame(bank) {
+                document.getElementById('start-game').style.display = 'none';
+                elements.gameBoard.innerHTML = '';
+                totalPoints = streak = combo = 0;
+                updateScoreDisplay();
+                currentCards = generateCards(bank);
+                renderCards();
+            }
+
+            function generateCards(bank) {
+                const cards = [];
+                const gameArea = elements.gameBoard.getBoundingClientRect();
+                const maxX = Math.max(0, gameArea.width - 180);
+                const maxY = Math.max(0, gameArea.height - 180);
+                bank.questions.forEach((q, i) => {
+                    // 传入 type: 'question' 或 'answer'
+                    cards.push(createCardElement(q, 'question', i));
+                    cards.push(createCardElement(bank.answers[i], 'answer', i));
+                });
+                return shuffle(cards).map((card, i) => {
+                    card.style.left = `${Math.random() * maxX}px`;
+                    card.style.top = `${Math.random() * maxY}px`;
+                    card.style.zIndex = i;
+                    return card;
+                });
+            }
+
+            function createCardElement(content, type, pairIndex) {
+                const card = document.createElement('div');
+                card.className = `card ${type}`;
+                // 使用 span 包裹内容，确保文字层级在水印之上
+                card.innerHTML = `<span>${content}</span>`; 
+                card.dataset.pairIndex = pairIndex;
+                card.addEventListener('click', handleCardClick);
+                return card;
+            }
+
+            function handleCardClick(e) {
+                const card = e.target.closest('.card');
+                if (!isMuted) elements.sound2.cloneNode(true).play();
+                
+                if (selectedCards.length === 0) {
+                    card.classList.add('selected');
+                    selectedCards.push(card);
+                } else {
+                    const [first] = selectedCards;
+                    
+                    // --- 核心修改：同色点击容错逻辑 ---
+                    // 1. 检查是否点击了同一张卡片（防止重复点击触发逻辑）
+                    if (first === card) return;
+
+                    // 2. 检查是否点击了同类型的卡片（例如都是问题卡或都是答案卡）
+                    const isFirstQuestion = first.classList.contains('question');
+                    const isSecondQuestion = card.classList.contains('question');
+
+                    if (isFirstQuestion === isSecondQuestion) {
+                        // 如果类型相同，不视为错误，而是视为“改变选择”
+                        // 移除前一个卡片的选中状态
+                        first.classList.remove('selected');
+                        // 选中当前点击的新卡片
+                        card.classList.add('selected');
+                        // 更新选中队列
+                        selectedCards = [card];
+                        return; // 直接返回，不执行后续的配对检查
+                    }
+                    // -----------------------------------
+
+                    if (isValidPair(first, card)) handleCorrectPair(first, card);
+                    else handleWrongPair(first, card);
+                }
+            }
+
+            function isValidPair(card1, card2) {
+                return card1.dataset.pairIndex === card2.dataset.pairIndex && 
+                       card1.classList.contains('question') !== card2.classList.contains('question');
+            }
+
+            function handleCorrectPair(card1, card2) {
+                elements.sound2.cloneNode(true).play();
+                elements.sound2.cloneNode(true).play();
+                streak++; 
+                combo = Math.min(combo + 1, 10);
+                
+                updateScore(2); // 固定+2分
+                
+                [card1, card2].forEach(card => {
+                    card.style.pointerEvents = 'none';
+                    card.style.transition = 'all 0.5s';
+                    card.style.transform = 'scale(1.5)';
+                    card.style.opacity = '0';
+                    setTimeout(() => {
+                        card.remove();
+                        checkGameComplete(); 
+                    }, 500);
+                });
+                
+                checkGameComplete();
+                selectedCards = [];
+            }
+
+            function handleWrongPair(card1, card2) {
+                elements.sound3.cloneNode(true).play();
+                streak = 0;
+                combo = Math.max(combo - 1, 0);
+                
+                updateScore(-1); // 固定-1分
+                
+                [card1, card2].forEach(card => {
+                    card.classList.remove('selected');
+                    card.style.animation = 'shake 0.5s';
+                    setTimeout(() => card.style.animation = '', 500);
+                });
+                selectedCards = [];
+            }
+
+            // 辅助功能
+            function updateScore(delta) {
+                totalPoints = Math.max(totalPoints + delta, 0); 
+                updateScoreDisplay();
+            }
+
+            function updateScoreDisplay() {
+                document.getElementById('current-user').textContent = `当前玩家：${currentUser}`;
+                document.getElementById('current-points').textContent = `当前积分：${totalPoints}`;
+                localStorage.setItem('leaderboard', JSON.stringify(leaderboard));
+                renderLeaderboard();
+            }
+
+            function renderLeaderboard() {
+                const sorted = leaderboard.sort((a,b) => b.score - a.score);
+                document.getElementById('leaderboard').innerHTML = sorted.map((entry, i) => `
+                    <li class="${['gold','silver','bronze'][i] || ''}">
+                        ${['🏅','🥈','🥉'][i] || '▫️'} 
+                        <span>${entry.name}</span>
+                        <span>${entry.score}</span>
+                    </li>
+                `).slice(0,10).join('');
+            }
+
+            function clearLeaderboard() {
+                leaderboard = [];
+                localStorage.setItem('leaderboard', JSON.stringify(leaderboard));
+                renderLeaderboard();
+            }
+
+            function checkGameComplete() {
+                const remainingCards = document.querySelectorAll('.card').length;
+                if (remainingCards === 0) {
+                    leaderboard.push({ name: currentUser, score: totalPoints });
+                    document.querySelector('#final-score').textContent = totalPoints;
+                    const resultModal = document.getElementById('results');
+                    resultModal.classList.add('show');
+                    elements.sound3.play();
+                    bgmPlaying = false;
+                    elements.sound1.pause();
+                    
+                    document.getElementById('start-game').style.display = 'none';
+                    resultModal.addEventListener('click', () => {
+                        resultModal.classList.remove('show');
+                        document.getElementById('start-game').style.display = 'block';
+                    }, { once: true });
+                }
+            }
+
+            function shuffle(array) {
+                for (let i = array.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [array[i], array[j]] = [array[j], array[i]];
+                }
+                return array;
+            }
+
+            function renderCards() {
+                currentCards.forEach(card => elements.gameBoard.appendChild(card));
+            }
+
+            function adjustCardsPosition() {
+                const gameArea = elements.gameBoard.getBoundingClientRect();
+                const maxX = Math.max(0, gameArea.width - 180);
+                const maxY = Math.max(0, gameArea.height - 180);
+                
+                document.querySelectorAll('.card').forEach(card => {
+                    let left = Math.min(parseFloat(card.style.left) || 0, maxX);
+                    let top = Math.min(parseFloat(card.style.top) || 0, maxY);
+                    card.style.left = `${left}px`;
+                    card.style.top = `${top}px`;
+                });
+            }
+
+            // 游戏区域动态调整
+            const updateGameArea = () => {
+                const sidebarOpen = !elements.sidebar.classList.contains('hidden');
+                document.documentElement.style.setProperty('--sidebar-width', sidebarOpen ? '300px' : '0');
+            };
+            elements.sidebar.addEventListener('transitionend', updateGameArea);
+            window.addEventListener('resize', updateGameArea);
+            window.addEventListener('resize', adjustCardsPosition);
+        });
+    </script>
+</body>
+</html>

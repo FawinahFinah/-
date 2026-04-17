@@ -1,0 +1,3935 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>文言大西瓜 - 消除与合成</title>
+    <!-- 引入 Matter.js 物理引擎 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+    <style>
+        /* 基础重置与圆润风 */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Comic Sans MS', 'ZCOOL KuaiLe', 'Microsoft YaHei', sans-serif;
+            touch-action: none;
+        }
+
+        /* 超级马里奥 2D 悬崖背景 */
+        body {
+            margin: 0;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            /* 蓝天渐变 */
+            background: linear-gradient(180deg, #5c94fc 0%, #e0f6ff 100%);
+            color: #333;
+            position: relative;
+        }
+
+        /* 纯 CSS 绘制 2D 卡通背景层 (仅远景) */
+        #mario-bg {
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 0; pointer-events: none; overflow: hidden;
+        }
+
+        /* 纯代码绘制的太阳 */
+        .sun {
+            position: absolute; top: 10%; left: 50%; transform: translateX(-50%);
+            width: 80px; height: 80px; background: #FFEB3B; border-radius: 50%;
+            box-shadow: 0 0 40px #FFEB3B, 0 0 80px #FFC107;
+            animation: pulseSun 4s infinite alternate ease-in-out;
+        }
+        @keyframes pulseSun { 
+            from { transform: translateX(-50%) scale(1); filter: brightness(1); } 
+            to { transform: translateX(-50%) scale(1.1); filter: brightness(1.1); } 
+        }
+
+        /* 纯代码绘制的卡通云彩 */
+        .css-cloud {
+            position: absolute; background: #fff; border-radius: 50px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+            opacity: 0.9;
+        }
+        .css-cloud::before, .css-cloud::after {
+            content: ''; position: absolute; background: #fff; border-radius: 50%;
+        }
+        .css-cloud-1 { width: 120px; height: 40px; top: 12%; animation: floatC1 35s linear infinite; }
+        .css-cloud-1::before { width: 60px; height: 60px; top: -30px; left: 15px; }
+        .css-cloud-1::after { width: 40px; height: 40px; top: -20px; right: 15px; }
+        
+        .css-cloud-2 { width: 100px; height: 35px; top: 25%; animation: floatC2 25s linear infinite; }
+        .css-cloud-2::before { width: 50px; height: 50px; top: -25px; left: 15px; }
+        .css-cloud-2::after { width: 35px; height: 35px; top: -15px; right: 10px; }
+
+        .css-cloud-3 { width: 140px; height: 45px; top: 18%; animation: floatC3 40s linear infinite; }
+        .css-cloud-3::before { width: 70px; height: 70px; top: -35px; left: 20px; }
+        .css-cloud-3::after { width: 50px; height: 50px; top: -25px; right: 20px; }
+
+        @keyframes floatC1 { 0% { left: -200px; } 100% { left: 110vw; } }
+        @keyframes floatC2 { 0% { left: 110vw; } 100% { left: -200px; } }
+        @keyframes floatC3 { 0% { left: 50vw; } 100% { left: 150vw; } }
+
+        /* 纯代码绘制的飞鸟 */
+        .bird-v {
+            position: absolute; width: 24px; height: 12px;
+            border-bottom: 4px solid #555; border-radius: 50%;
+            z-index: 1;
+        }
+        .bird-v::before {
+            content:''; position:absolute; inset:0; 
+            border-bottom:4px solid #555; border-radius:50%;
+            animation: flapWings 0.5s infinite alternate ease-in-out; 
+            transform-origin: bottom center;
+        }
+        @keyframes flapWings { from { transform: scaleY(1); } to { transform: scaleY(-0.5); } }
+        
+        .fly-1 { animation: fly1 18s linear infinite; }
+        .fly-2 { animation: fly2 25s linear infinite reverse; animation-delay: -5s; }
+        .fly-3 { animation: fly1 20s linear infinite; animation-delay: -10s; transform: scale(0.6); }
+
+        @keyframes fly1 { 0% { left: -10%; top: 15%; } 100% { left: 110%; top: 10%; } }
+        @keyframes fly2 { 0% { left: -10%; top: 25%; } 100% { left: 110%; top: 30%; } }
+
+        /* 游戏主体容器：水箱区域 */
+        #game-area {
+            position: absolute; top: 10vh; left: 50%;
+            transform: translateX(-50%);
+            width: 100%; max-width: 480px; height: 90vh;
+            z-index: 10;
+        }
+
+        /* 动态悬崖墙体，吸附在游戏区两侧 */
+        .cliff-left {
+            position: absolute; right: 100%; top: 0; bottom: -10vh; width: 50vw;
+            background: #8D6E63;
+            border-top: 25px solid #4CAF50;
+            border-right: 5px solid #5D4037;
+            box-shadow: inset -10px 0 20px rgba(0,0,0,0.3);
+            z-index: 1;
+        }
+        .cliff-right {
+            position: absolute; left: 100%; top: 0; bottom: -10vh; width: 50vw;
+            background: #8D6E63;
+            border-top: 25px solid #4CAF50;
+            border-left: 5px solid #5D4037;
+            box-shadow: inset 10px 0 20px rgba(0,0,0,0.3);
+            z-index: 1;
+        }
+
+        /* 悬挂在悬崖边缘的草 */
+        .grass-overhang {
+            position: absolute; top: 0; left: 0; right: 0; height: 20px;
+            background: radial-gradient(circle at 10px 0, transparent 10px, #4CAF50 11px);
+            background-size: 20px 20px;
+            transform: translateY(-1px);
+        }
+
+        /* 悬崖洞穴 */
+        .cave-left {
+            position: absolute; right: 0; width: 160px; height: 60px;
+            background: #3e2723; border-radius: 40px 0 0 40px;
+            box-shadow: inset -5px 5px 15px rgba(0,0,0,0.8), 0 5px 0 rgba(255,255,255,0.1);
+            display: flex; align-items: center; justify-content: flex-end; padding-right: 15px;
+            overflow: hidden;
+        }
+        .cave-right {
+            position: absolute; left: 0; width: 160px; height: 60px;
+            background: #3e2723; border-radius: 0 40px 40px 0;
+            box-shadow: inset 5px 5px 15px rgba(0,0,0,0.8), 0 5px 0 rgba(255,255,255,0.1);
+            display: flex; align-items: center; justify-content: flex-start; padding-left: 15px;
+            overflow: hidden;
+        }
+        .cave-animal {
+            font-size: 40px; display: inline-block; transform-origin: bottom center; filter: drop-shadow(2px 4px 6px rgba(0,0,0,0.5));
+        }
+
+        /* 个性化洞穴小动物的左右巡逻与停留动画 */
+        .anim-bat { animation: patrolBat 8s infinite ease-in-out; display: inline-block; }
+        .anim-owl { animation: patrolOwl 12s infinite ease-in-out; display: inline-block; }
+        .anim-fox { animation: patrolFox 14s infinite ease-in-out; display: inline-block; }
+        .anim-hedgehog { animation: patrolHedgehog 10s infinite ease-in-out; display: inline-block; }
+        
+        @keyframes patrolBat {
+            0%, 15% { transform: translateX(0); }
+            35%, 60% { transform: translateX(-80px); }
+            85%, 100% { transform: translateX(0); }
+        }
+        @keyframes patrolOwl {
+            0%, 10% { transform: translateX(0); }
+            40%, 50% { transform: translateX(-90px); }
+            80%, 100% { transform: translateX(0); }
+        }
+        @keyframes patrolFox {
+            0%, 20% { transform: translateX(0); }
+            45%, 65% { transform: translateX(80px); }
+            90%, 100% { transform: translateX(0); }
+        }
+        @keyframes patrolHedgehog {
+            0%, 5% { transform: translateX(0); }
+            30%, 50% { transform: translateX(60px); }
+            80%, 100% { transform: translateX(0); }
+        }
+
+        /* 悬崖上的岩石点缀 */
+        .rock {
+            position: absolute; background: #5D4037; border-radius: 50%; opacity: 0.8;
+            box-shadow: inset -2px -2px 5px rgba(0,0,0,0.3);
+        }
+        
+        /* 顶部的其它小动物，尺寸统一 */
+        .animal-top {
+            position: absolute; font-size: 40px; z-index: 2;
+            filter: drop-shadow(2px 4px 6px rgba(0,0,0,0.3));
+            transform-origin: bottom center;
+        }
+        
+        .cheer-anim {
+            animation: cheerJump 0.6s cubic-bezier(0.28, 0.84, 0.42, 1);
+        }
+        @keyframes cheerJump {
+            0%, 100% { transform: translateY(0) scale(1); }
+            40% { transform: translateY(-40px) scale(1.1) rotate(-10deg); }
+            60% { transform: translateY(-40px) scale(1.1) rotate(10deg); }
+        }
+
+        /* 统一按钮样式 */
+        .cute-btn {
+            background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%);
+            color: #fff;
+            border: none;
+            border-radius: 25px;
+            font-weight: bold;
+            font-size: 16px;
+            padding: 12px 20px;
+            box-shadow: 0 4px 15px rgba(255, 154, 158, 0.4);
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+            outline: none;
+        }
+        .cute-btn:active { transform: scale(0.95); }
+
+        /* 整理按钮震动动画 */
+        .shake-alert {
+            animation: intenseShake 0.5s infinite;
+            box-shadow: 0 0 20px #ffeb3b !important;
+        }
+        @keyframes intenseShake {
+            0% { transform: translate(1px, 1px) rotate(0deg); }
+            10% { transform: translate(-1px, -2px) rotate(-1deg); }
+            20% { transform: translate(-3px, 0px) rotate(1deg); }
+            30% { transform: translate(3px, 2px) rotate(0deg); }
+            40% { transform: translate(1px, -1px) rotate(1deg); }
+            50% { transform: translate(-1px, 2px) rotate(-1deg); }
+            60% { transform: translate(-3px, 1px) rotate(0deg); }
+            70% { transform: translate(3px, 1px) rotate(-1deg); }
+            80% { transform: translate(-1px, -1px) rotate(1deg); }
+            90% { transform: translate(1px, 2px) rotate(0deg); }
+            100% { transform: translate(1px, -2px) rotate(-1deg); }
+        }
+
+        /* ======================== 题库侧边栏 (左侧固定，茅草风格，可收起，高度同步) ======================== */
+        #toggle-sidebar {
+            position: fixed; left: 0; top: calc(10vh + 20px); z-index: 2001; 
+            padding: 12px 20px; border-radius: 0 25px 25px 0;
+            background: #e9c46a; color: #5D4037; border: 2px solid #e76f51; border-left: none;
+            box-shadow: 4px 4px 10px rgba(0,0,0,0.2);
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        #toggle-sidebar.open { transform: translateX(280px); }
+
+        #sidebar {
+            position: fixed; left: 0; top: 10vh; width: 280px; height: 90vh;
+            background: #8D6E63; 
+            border-right: 5px solid #5D4037;
+            border-radius: 0 30px 0 0;
+            transform: translateX(-100%); transition: transform 0.3s cubic-bezier(0, 0, 0.2, 1);
+            z-index: 2000; padding: 45px 15px 15px;
+            display: flex; flex-direction: column; box-shadow: 10px 0 30px rgba(0,0,0,0.3);
+        }
+        #sidebar.open { transform: translateX(0); }
+        
+        /* 茅草屋檐装饰 */
+        #sidebar::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 25px;
+            background: repeating-linear-gradient(135deg, #e9c46a 0px, #e9c46a 12px, #f4a261 12px, #f4a261 24px);
+            border-bottom: 4px solid #e76f51;
+            border-radius: 0 30px 0 0;
+            z-index: 1;
+        }
+
+        .input-group { margin-bottom: 12px; position: relative; z-index: 2; }
+        .input-group label { display: block; margin-bottom: 6px; font-weight: bold; color: #ffe082; text-shadow: 1px 1px 2px rgba(0,0,0,0.5);}
+        .input-group input, .input-group textarea {
+            width: 100%; padding: 10px; border: 2px solid #A1887F;
+            border-radius: 12px; font-size: 14px; outline: none; resize: vertical;
+            background: rgba(62, 39, 35, 0.4); color: #fff;
+        }
+        .input-group input::placeholder, .input-group textarea::placeholder { color: rgba(255,255,255,0.5); }
+        .input-group textarea { height: 80px; }
+        .btn-group { display: flex; gap: 10px; margin-bottom: 15px; position: relative; z-index: 2; }
+        .btn-group button { flex: 1; padding: 10px; font-size: 14px;}
+        .history-list { flex: 1; overflow-y: auto; padding-top: 5px; position: relative; z-index: 2; }
+        .history-item {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 10px; background: rgba(0,0,0,0.3);
+            border-radius: 10px; margin-bottom: 6px; color: #fff; font-weight: bold; cursor: pointer; font-size: 14px;
+        }
+
+        /* ======================== 右侧计分板 (固定在最右侧，岩石风格，高度同步) ======================== */
+        #score-panel {
+            position: fixed; right: 0; top: 10vh; width: 280px; height: 90vh;
+            background: #5D4037; 
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(0,0,0,0.2) 0%, transparent 20%),
+                radial-gradient(circle at 80% 80%, rgba(0,0,0,0.2) 0%, transparent 25%),
+                radial-gradient(circle at 80% 20%, #6D4C41 0%, transparent 20%);
+            border-left: 5px solid #3E2723;
+            border-radius: 30px 0 0 0;
+            padding: 40px 15px 15px; display: flex; flex-direction: column; gap: 12px;
+            box-shadow: -10px 0 30px rgba(0,0,0,0.3); z-index: 1000;
+        }
+        /* 岩石顶部的青苔绿边 */
+        #score-panel::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 25px;
+            background: #4CAF50; border-bottom: 4px solid #2E7D32;
+            border-radius: 30px 0 0 0;
+        }
+
+        .current-player-box {
+            background: rgba(0,0,0,0.3); padding: 15px; border-radius: 15px; 
+            text-align: center; border: 2px dashed #ffe082; position: relative; z-index: 2;
+        }
+        .current-player-box h3 { color: #ffe082; font-size:16px; margin-bottom:5px;}
+        .current-score { font-size: 36px; font-weight: bold; color: #aed581; margin: 5px 0; text-shadow: 1px 1px 2px #000;}
+        .current-player-box div { color: #ddd; font-size: 12px; }
+        .action-buttons { display: flex; gap: 10px; margin-top: 5px; position: relative; z-index: 2;}
+        .action-buttons button { padding: 10px; font-size: 14px;}
+        .leaderboard-container { flex: 1; overflow-y: auto; background: rgba(0,0,0,0.2); border-radius: 15px; padding: 10px; border: 1px solid #3E2723; margin-top: 10px; position: relative; z-index: 2;}
+        .rank-item { display: flex; justify-content: space-between; padding: 8px 12px; margin-bottom: 6px; background: rgba(0,0,0,0.3); font-size: 13px; border-radius: 10px; font-weight: bold; color: #fff; }
+        
+        /* 水箱本体 */
+        #tank-container {
+            position: relative; width: 100%; height: 100%;
+            overflow: visible; 
+            will-change: transform;
+            transform: translateZ(0); 
+            backface-visibility: hidden;
+        }
+        
+        /* 底部树枝 (用于承托水果) */
+        #branch-bottom {
+            position: absolute; bottom: -15px; left: -10%; width: 120%; height: 30px;
+            background: #8D6E63; border-radius: 15px; border-bottom: 5px solid #5D4037;
+            z-index: 15;
+            transition: transform 1.5s cubic-bezier(0.5, 0, 1, 1), opacity 1.5s;
+        }
+        #branch-bottom::before { content: '🌿'; position: absolute; left: 5%; top: -15px; font-size: 24px; }
+        #branch-bottom::after { content: '🍃'; position: absolute; right: 5%; top: -10px; font-size: 24px; }
+
+        /* 树枝超限报警动画 */
+        .branch-flash {
+            animation: branchAlert 0.4s infinite alternate;
+        }
+        @keyframes branchAlert {
+            from { background: #8D6E63; box-shadow: 0 0 10px transparent; }
+            to { background: #ff4d4d; box-shadow: 0 0 30px #ff4d4d; }
+        }
+        
+        /* 树枝断裂特效 */
+        .branch-broken {
+            transform: translateY(100vh) rotate(20deg) !important;
+            opacity: 0;
+        }
+
+        /* 警告红线 */
+        #danger-line {
+            position: absolute; top: 8%; left: 0; width: 100%; height: 2px;
+            background: repeating-linear-gradient(90deg, #ff4d4d, #ff4d4d 10px, transparent 10px, transparent 20px);
+            z-index: 100; opacity: 0.6; pointer-events: none;
+        }
+        .danger-flash { animation: flashRed 0.5s infinite alternate; }
+        @keyframes flashRed { from { opacity: 0.5; background-color: rgba(255,0,0,0.1); } to { opacity: 1; background-color: rgba(255,0,0,0.3); } }
+
+        /* 福利时间艺术字弹窗 */
+        #bonus-alert {
+            position: fixed; top: 20%; left: 50%; transform: translate(-50%, -50%) scale(0);
+            font-size: 80px; font-weight: 900; color: #ffeb3b; 
+            text-shadow: 0 4px 10px rgba(0,0,0,0.3), 0 0 20px #ff9800, 0 0 40px #f44336; 
+            z-index: 9999; pointer-events: none; text-align: center; width: 100%;
+            opacity: 0;
+        }
+        .bonus-show {
+            animation: bonusPop 2.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+        @keyframes bonusPop {
+            0% { transform: translate(-50%, -50%) scale(0); opacity: 0; }
+            10% { transform: translate(-50%, -50%) scale(1.2); opacity: 1; }
+            20% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+            80% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+            100% { transform: translate(-50%, -100%) scale(0.8); opacity: 0; }
+        }
+
+        /* 物理块的 DOM 映射层 */
+        .block-dom {
+            position: absolute;
+            transform-origin: center center;
+            cursor: pointer;
+            border-radius: 20px;
+            container-type: size;
+            will-change: transform; 
+            transform: translateZ(0);
+            backface-visibility: hidden;
+        }
+
+        .upgrade-anim {
+            animation: popUpgrade 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+        @keyframes popUpgrade {
+            0% { transform: scale(0.4); filter: brightness(2); }
+            100% { transform: scale(1); filter: brightness(1); }
+        }
+
+        .bg-layer {
+            position: absolute; inset: 0;
+            border-radius: inherit; overflow: hidden;
+            pointer-events: none; transition: filter 0.2s, box-shadow 0.2s;
+        }
+        .block-dom.selected .bg-layer {
+            filter: brightness(1.3);
+            box-shadow: 0 0 20px #ffeb3b, 0 8px 15px rgba(0,0,0,0.3) !important;
+            border: 4px solid #fff !important;
+        }
+        .block-dom.selected { z-index: 50 !important; }
+        .block-dom.error-shake { animation: shakeError 0.4s ease-in-out; }
+        @keyframes shakeError { 0%, 100% { margin-left: 0; } 25% { margin-left: -10px; } 75% { margin-left: 10px; } }
+
+        .bg-emoji { position: absolute; opacity: 0.25; font-size: 50px; pointer-events: none; }
+        .text-wrapper { 
+            position: relative; z-index: 1; pointer-events: none; 
+            display: flex; align-items: center; justify-content: center; 
+            width: 100%; height: 100%;
+            transition: transform 0.05s linear;
+            backface-visibility: hidden;
+        }
+        .text-wrapper span {
+            display: inline-block; text-align: center; line-height: 1.15;
+            word-break: break-all; max-width: 90%; max-height: 90%;
+            font-weight: bold; overflow: hidden;
+        }
+        
+        .block-type-q .bg-layer { 
+            background: linear-gradient(135deg, #ffffff 0%, #f0f0f0 100%); 
+            border: 2px solid #e0e0e0;
+            box-shadow: inset 0 4px 6px rgba(255,255,255,0.8), inset 0 -4px 6px rgba(0,0,0,0.05), 0 4px 10px rgba(0,0,0,0.15);
+        }
+        .block-type-q .text-wrapper span { color: #2c3e50; }
+        .block-type-q .bg-emoji { filter: grayscale(100%); opacity: 0.05; }
+        
+        .block-type-a .bg-layer { 
+            border: 2px solid rgba(255,255,255,0.4);
+            box-shadow: inset 0 8px 12px rgba(255,255,255,0.4), inset 0 -8px 12px rgba(0,0,0,0.2), 0 6px 12px rgba(0,0,0,0.2);
+        }
+        .block-type-a .text-wrapper span { 
+            background: rgba(0, 0, 0, 0.65); padding: 4px 8px; border-radius: 12px; 
+            color: #fff; text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+        }
+        .block-type-a .bg-emoji { opacity: 0.6; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5)); }
+
+        .highlight { color: #ff5e62 !important; font-weight: 900; }
+
+        /* 模态框 */
+        .modal-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: none; 
+            align-items: center; justify-content: center; z-index: 3000; 
+        }
+        .modal-box {
+            background: #fff; padding: 30px; border-radius: 30px; text-align: center;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.3); width: 450px; max-width: 90vw;
+            border: 6px solid #ffb199;
+        }
+        .modal-box h2 { color: #ff7eb3; margin-bottom: 15px; font-size: 28px;}
+        .modal-box p { color: #666; font-size: 16px; line-height: 1.6; margin-bottom: 12px; text-align: left;}
+        
+        /* 游戏规则高亮 */
+        .hl-green { color: #4caf50; font-weight: bold; } 
+        .hl-danger { color: #f44336; font-weight: bold; }
+        .highlight-text { color: #ff5e62; font-weight: bold; }
+
+        .name-input {
+            width: 100%; padding: 15px; background: #faf9ff; border: 2px solid #e2d1f9; 
+            text-align: center; font-size: 18px; margin-bottom: 20px; border-radius: 20px; outline: none;
+        }
+
+        .splash-particle {
+            position: absolute; border-radius: 50%; pointer-events: none; z-index: 9999;
+            animation: splash 0.6s cubic-bezier(0.1, 0.8, 0.3, 1) forwards;
+        }
+        @keyframes splash { 0% { transform: scale(1); opacity: 1; } 100% { transform: scale(0) translate(var(--tx), var(--ty)); opacity: 0; } }
+        
+        .watermelon-anim {
+            position: absolute; font-size: 100px; z-index: 10000; pointer-events: none;
+            animation: dropWatermelon 1.5s ease-out forwards;
+        }
+        @keyframes dropWatermelon {
+            0% { transform: translate(-50%, -200%) scale(0.5); opacity: 1; }
+            40% { transform: translate(-50%, -50%) scale(1.2); opacity: 1; filter: brightness(1.5); }
+            60% { transform: translate(-50%, -50%) scale(0.9); opacity: 1; }
+            80% { transform: translate(-50%, -50%) scale(1.05); opacity: 1; }
+            100% { transform: translate(-50%, -50%) scale(1); opacity: 0; }
+        }
+
+        .win-overlay {
+            position: fixed; inset: 0; z-index: 9000; display: none;
+            align-items: center; justify-content: center; flex-direction: column;
+            background: rgba(255, 255, 255, 0.9);
+        }
+        .win-title { font-size: 60px; font-weight: 900; color: #ff9800; text-shadow: 0 4px 10px rgba(0,0,0,0.2), 0 0 20px #ffeb3b; animation: popIn 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;}
+        @keyframes popIn { 0% { transform: scale(0); } 100% { transform: scale(1); } }
+        
+        .fruit-rain { position: absolute; font-size: 40px; animation: rainDown 3s linear forwards; pointer-events: none; }
+        @keyframes rainDown { 0% { top: -10%; transform: rotate(0deg); } 100% { top: 110%; transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+    <!-- 卡通2D背景层 -->
+    <div id="mario-bg">
+        <div class="sun"></div>
+        
+        <div class="css-cloud css-cloud-1"></div>
+        <div class="css-cloud css-cloud-2"></div>
+        <div class="css-cloud css-cloud-3"></div>
+        
+        <div class="bird-v fly-1"></div>
+        <div class="bird-v fly-2"></div>
+        <div class="bird-v fly-3"></div>
+    </div>
+
+    <!-- UI: 左侧题库 (茅草风格，收起与悬崖融为一体) -->
+    <button id="toggle-sidebar" class="cute-btn">🍉 词库管理</button>
+    <div id="sidebar">
+        <h3 style="text-align: center; margin-bottom: 10px; color: #ffe082; text-shadow: 1px 1px 2px rgba(0,0,0,0.5); position:relative; z-index:2;">📚 词库设定</h3>
+        <div class="input-group">
+            <label>📝 关卡名称</label>
+            <input type="text" id="db-name" placeholder="例如：七年级上册实词">
+        </div>
+        <div class="input-group">
+            <label>⬜ 上句 (白底块，**高亮)</label>
+            <textarea id="db-questions">寒雪**日**内集
+寒雪日**内集**
+**俄而**雪骤
+俄而雪**骤**
+公**欣然**曰
+白雪纷纷何所**似**
+**撒**盐空中差可拟
+撒盐空中**差**可拟
+撒盐空中差可**拟**
+**未若**柳絮因风起</textarea>
+        </div>
+        <div class="input-group">
+            <label>🍉 下句 (水果块，对应翻译)</label>
+            <textarea id="db-answers">天
+家庭聚会
+不久，一会儿
+急
+高兴的样子
+像
+撒落
+大体
+相比
+不如，不及</textarea>
+        </div>
+        <div class="btn-group">
+            <button id="btn-save" class="cute-btn" style="background:#a1c4fd; color:#333;">💾 保存</button>
+            <button id="btn-run" class="cute-btn">🚀 挑战</button>
+        </div>
+        <div class="history-list" id="history-list"></div>
+    </div>
+
+    <!-- UI: 右侧计分板 (岩石风格，固定在最右边缘) -->
+    <div id="score-panel">
+        <h3 style="text-align: center; margin-bottom: 10px; color: #ffe082; text-shadow: 1px 1px 2px rgba(0,0,0,0.5); position:relative; z-index:2;">🏆 西瓜金榜</h3>
+        <div class="current-player-box">
+            <h3>👑 挑战者：<span id="player-name">未开始</span></h3>
+            <div class="current-score" id="player-score">0</div>
+            <div style="font-size: 13px; font-weight: bold;">
+                配对: +2分 | 进化: 随等级递增<br>西瓜+西瓜: 巨型膨胀 +10分
+            </div>
+        </div>
+        
+        <div class="action-buttons">
+            <button id="btn-organize" class="cute-btn" style="flex: 1; background: linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%); color: #333;">🧹 整理 (3)</button>
+            <button id="btn-stop-game" class="cute-btn" style="display: none; flex: 1; background: linear-gradient(135deg, #f6d365 0%, #fda085 100%);">🏃 撤离</button>
+        </div>
+
+        <div class="leaderboard-container">
+            <div id="leaderboard-list"></div>
+        </div>
+        <button onclick="clearLeaderboard()" class="cute-btn" style="margin-top: auto; padding: 8px; font-size: 12px; background: rgba(0,0,0,0.3); border: 2px solid #3E2723; color:#fff; position: relative; z-index:2;">🧹 清空记录</button>
+    </div>
+
+    <!-- 水箱区 -->
+    <div id="game-area">
+        <!-- 左右悬崖物理边界视觉层 -->
+        <div class="cliff-left">
+            <div class="grass-overhang"></div>
+            <div class="rock" style="width:50px; height:30px; top:30%; left:20%;"></div>
+            <div class="rock" style="width:30px; height:20px; top:60%; left:50%;"></div>
+            <div class="animal animal-top" style="top:-45px; right: 15%;">🐒</div>
+            
+            <!-- 横向深洞穴与小动物巡逻 -->
+            <div class="cave-left" style="top: 25%;">
+                <div class="anim-bat">
+                    <span class="animal cave-animal">🦇</span>
+                </div>
+            </div>
+            <div class="cave-left" style="top: 60%;">
+                <div class="anim-owl">
+                    <span class="animal cave-animal">🦉</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="cliff-right">
+            <div class="grass-overhang"></div>
+            <div class="rock" style="width:40px; height:25px; top:20%; right:30%;"></div>
+            <div class="rock" style="width:60px; height:35px; top:50%; right:15%;"></div>
+            <div class="animal animal-top" style="top:-42px; left: 10%;">🐰</div>
+            <div class="animal animal-top" style="top:-45px; left: 40%;">🦊</div>
+            
+            <!-- 横向深洞穴与小动物巡逻 -->
+            <div class="cave-right" style="top: 40%;">
+                <div class="anim-fox">
+                    <span class="animal cave-animal">🦊</span>
+                </div>
+            </div>
+            <div class="cave-right" style="top: 75%;">
+                <div class="anim-hedgehog">
+                    <span class="animal cave-animal">🦔</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 惊喜福利弹窗提示 -->
+        <div id="bonus-alert">福利时间！</div>
+
+        <div id="tank-container">
+            <div id="danger-line"></div>
+        </div>
+        <!-- 底部树枝 -->
+        <div id="branch-bottom"></div>
+    </div>
+
+    <!-- UI: 弹窗 -->
+    <div id="start-screen" class="modal-overlay" style="display: none;">
+        <div class="modal-box">
+            <h2>🍉 <span style="color:#ffb199">文言大西瓜</span> 🍉</h2>
+            <div style="background:#f1f8e9; padding: 15px; border-radius: 15px; margin-bottom: 20px;">
+                <p>🟢 <b>精准配对</b>：点击匹配原句与释义。</p>
+                <p>🔥 <b>强制进化</b>：匹配消除后，其余方块将强制进化膨胀！</p>
+                <p>🎁 <b>惊喜福利</b>：据说，大方块和小方块组合，会有<span class="highlight-text" style="font-size: 1.2em;">惊喜</span>哦！</p>
+                <p>⏳ <b>定时掉落</b>：开局掉落初始方块，随后会定时掉落新方块。</p>
+                <p>⚠️ <b>警戒出局</b>：水果持续堆积触碰红线，树枝会断裂导致失败！</p>
+                <p style="text-align:center; color:#ff9800; margin-top:10px; font-weight:bold;">🍇 ➔ 🍎 ➔ 🍊 ➔ 🍋 ➔ 🥥 ➔ 🍉</p>
+            </div>
+            <button id="start-game-btn" class="cute-btn" style="width:100%; font-size: 22px; padding:15px;">开始挑战</button>
+        </div>
+    </div>
+
+    <div id="name-modal-overlay" class="modal-overlay">
+        <div class="modal-box">
+            <h3>📝 签下你的名字</h3>
+            <input type="text" id="player-name-input" class="name-input" placeholder="西瓜猎人" maxlength="10">
+            <button id="btn-confirm-name" class="cute-btn" style="width: 100%; font-size: 20px; margin-bottom: 10px;">确认</button>
+            <button id="btn-cancel-name" class="cute-btn" style="width: 100%; background: #e2d1f9;">取消</button>
+        </div>
+    </div>
+
+    <div id="results-modal" class="modal-overlay">
+        <div class="modal-box">
+            <h2 id="result-title">🎉 挑战结束！</h2>
+            <p style="font-size: 18px; text-align: center;">最终得分：<br><strong id="result-score" style="color: #ff5e62; font-size: 48px;">0</strong></p>
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button id="btn-restart" class="cute-btn" style="flex: 1; font-size: 16px;">重新挑战</button>
+                <button id="btn-back-sidebar" class="cute-btn" style="flex: 1; font-size: 16px; background: #e2d1f9; color: #555;">回到主页</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 胜利特效层 -->
+    <div class="win-overlay" id="win-overlay">
+        <div class="win-title">✨ PERFECT CLEAR ✨</div>
+        <div style="font-size: 30px; font-weight: bold; color: #ff5e62; margin-top: 20px;">完美通关！</div>
+    </div>
+
+    <script>
+        // ==========================================
+        // 0. 预置题库数据 (从初中文言字词大全表.xlsx 导入)
+        // ==========================================
+        const PRESET_DB = {
+            "七下文言词语综合练": {
+                q: `有卖油翁释担**而**立
+睨之久而不**去**
+陈康肃公**善**射
+公亦**以**此自矜
+公亦以此**自矜**
+**尝**射于家圃
+有卖油翁**释**担而立
+**睨**之久而不去
+睨**之**久而不去
+睨之久**而**不去
+康肃笑而**遣**之
+**惟**手熟尔
+**而**钱不湿
+但微**颔**之
+见**其**发矢十中八九
+尝射**于**家圃
+**但**微颔之
+徐以杓酌油**沥**之
+但手熟**尔**
+**尔**安敢轻吾射
+**徐**以杓酌油沥之
+尔安敢**轻**吾射
+**以**我酌油知之
+**乃**取一葫芦置于地
+以钱**覆**其口
+尔**安**敢轻吾射
+**大兄**何见事之晚乎
+见**往事**耳
+见往事**耳**
+**及**鲁肃过寻阳
+及鲁肃**过**寻阳
+卿今者**才略**
+非**复**吴下阿蒙
+肃**遂**拜蒙母
+即更**刮目相待**
+大兄何**见事**之晚乎
+**但**当涉猎
+初权**谓**吕蒙曰
+但当**涉猎**
+即**更**刮目相待
+卿今当涂**掌事**
+**见**往事耳
+卿今**当涂**掌事
+**辞**以多务
+辞**以**多务
+**孤**岂欲卿治经为博士邪
+孤**岂**欲卿治经为博士邪
+孤岂欲卿**治**经为博士邪
+孤岂欲卿治经为**博士**邪
+孤岂欲卿治经为博士**邪**
+**卿**今当涂掌事
+**固**颠
+众服为**确论**
+岂能为暴涨携之**去**
+**乃**石性坚重
+**湮**于沙上
+不亦**颠**乎
+众**服**为确论
+**凡**河中失石
+**盖**石性坚重
+必于石下迎水处**啮**沙为坎穴
+岂能**为**暴涨携之去
+遂反**溯流**逆上矣
+**棹**数小舟
+**然则**天下之事
+转转不**已**
+**求**二石兽于水中
+沧州南一寺**临**河干
+沧州南一寺临河**干**
+山门**圮**于河
+二石兽**并**沉焉
+二石兽并沉**焉**
+一讲学家**设帐**寺中
+可据理**臆断**欤
+**岂**能为暴涨携之去
+**竟**不可得
+**曳**铁钯
+尔辈不能**究**物理
+尔辈不能究**物理**
+**是**非木杮
+**阅**十余岁
+可以**调**素琴
+**亭亭**净植
+予独爱莲之出淤泥**而**不染
+**濯**清涟而不妖
+濯清涟而不**妖**
+中通外**直**
+不**蔓**不枝
+不蔓不**枝**
+谈笑有**鸿儒**
+香远**益**清
+可爱者甚**蕃**
+亭亭净**植**
+可远**观**而不可亵玩焉
+可远观而不可**亵玩**焉
+予**谓**菊
+牡丹**之**爱
+**宜**乎众矣
+香**远**益清
+无**丝竹**之乱耳
+有龙则**灵**
+**斯**是陋室
+**惟**吾德馨
+惟吾德**馨**
+苔痕**上**阶绿
+往来无**白丁**
+予独爱莲**之**出淤泥而不染
+阅**金经**
+晋陶渊明**独**爱菊
+无丝竹**之**乱耳
+无丝竹之**乱**耳
+无**案牍**之劳形
+无案牍之**劳**形
+无案牍之劳**形**
+可爱**者**甚蕃
+有仙则**名**
+可以调**素琴**`,
+                a: `连词，表顺承
+离开
+擅长
+介词，凭借
+自夸
+曾经
+放下
+斜着眼看
+代词，指代射箭
+连词，表修饰
+打发
+只，不过
+连词，表转折
+点头
+代词，指代陈康肃
+介词，在
+只，不过
+下滴
+同耳，罢了
+代词，你
+慢慢地
+轻视
+介词，凭、靠
+于是，就
+盖
+怎么
+长兄，对同辈年长者尊称
+历史
+表示限止语气，罢了
+到了……的时候
+经过
+军事或政治的才干谋略
+再，又
+于是，就
+擦眼相看，指另眼相看
+认清事物
+只，只是
+告诉，对……说
+粗略地阅读
+重新
+掌管事务
+了解
+当道，当权
+推托
+介词，用
+古时王侯的自称
+副词，难道
+研究
+专掌经学传授的学官
+同耶，语气词，吗
+古代君对臣的爱称
+固然
+精当确切的言论
+离开
+是，表判断
+埋没
+颠倒，错乱
+信服
+凡是
+连词，因为
+冲刷
+介词，被
+逆流
+划船
+既然这样，那么
+停止
+寻找
+靠近
+水边，河岸
+倒塌
+副词，一起
+兼词，于此，在那里
+设馆教书
+主观地判断
+怎么
+终了，最后
+拖着
+推究
+事物的道理、规律
+这，代词
+经过，经历
+调弄
+耸立的样子
+连词，表转折
+洗涤
+艳丽
+挺直
+长出藤蔓
+生出枝条
+博学的人
+更加
+多
+竖立
+观赏
+靠近赏玩
+认为
+宾语前置的标志
+应当
+远播，传得远
+借指奏乐的声音
+神异
+这
+只，只是
+品德高尚
+长到，蔓延到
+平民，指无功名的人
+主谓之间，取独
+指佛经
+只，惟独
+主谓之间，取独
+使……扰乱
+官府的文书
+使……劳累
+形体、身体
+……的花
+出名，有名
+不加装饰的琴`
+            },
+            "八下文言词语综合练": {
+                q: `鲦鱼出游**从容**
+请**循**其本
+子非鱼，**安**知鱼之乐
+**其**正色邪
+**野马**也
+去以六月**息**者也
+**去**以六月息者也
+北**冥**有鱼
+齐谐者，**志**怪者也
+**海运**则将徙于南冥
+**垂**天之云
+**怒**而飞
+**抟**扶摇而上者九万里
+子之不知鱼之乐**全**矣
+**学**学半
+教学相**长**
+然后能**自强**也
+知**困**
+**是故**学然后知不足
+不知其**旨**也
+**虽**有嘉肴
+**其**此之谓乎
+然后能**自反**也
+虽有**嘉肴**
+男有**分**
+选贤**与**能
+虽有**至道**
+女有**归**
+**矜**、寡、孤、独
+使老有所**终**
+讲信**修**睦
+不独**子**其子
+故人不独**亲**其亲
+壮有所**用**
+货**恶**其弃于地也
+悄怆幽**邃**
+青树翠**蔓**
+卷石底**以**出
+水**尤**清冽
+**下**见小潭
+**悄怆**幽邃
+皆若**空**游无所依
+以其境过**清**
+**隶**而从者
+从小丘**西**行百二十步
+日光下**澈**
+**佁然**不动
+**俶尔**远逝
+往来**翕忽**
+**乃**记之而去
+不可久**居**
+**可**百许头
+**蒙络**摇缀
+**矫**首昂视
+清风**徐**来
+**启**窗而观
+中**轩敞**者
+八分**有**奇
+尝**贻**余核舟一
+罔不因势**象**形
+**罔不**因势象形
+石青**糁**之
+罔不**因**势象形
+**曾**不盈寸
+中**峨冠**而多髯者
+**绝**类弥勒
+曾不**盈**寸
+若听茶声**然**
+视**端**容寂
+**诎**右臂支船
+中峨冠而多**髯**者
+绝**类**弥勒
+如有所**语**
+其两膝相**比**者
+不**属**
+盖**简**桃核修狭者为之
+**不足**为外人道也
+**咸**来问讯
+**寻**病终
+寻向所**志**
+**寻**向所志
+便**扶**向路
+**无论**魏晋
+便**要**还家
+桑竹之**属**
+来此**绝境**
+不复出**焉**
+便扶**向**路
+**具**答之
+**乃**大惊
+并**怡然**自乐
+黄发**垂髫**
+率**妻子**邑人
+**悉**如外人
+问**津**
+**平旷**
+**豁然**开朗
+欲**穷**其林
+甚**异**之
+**落英**缤纷
+**缘**溪行
+**黄发**垂髫
+**其**真无马邪
+执策而**临**之
+鸣之而不能**通**其意
+食之不能尽其**材**
+策之不以其**道**
+**策**之不以其道
+且欲与常马**等**不可得
+才美不外**见**
+**食**马者
+一食**或**尽粟一石
+不以千里**称**也
+**骈死**于槽枥之间
+只**辱**于奴隶人之手
+**其**真不知马也
+其真无马**邪**`,
+                a: `轻松悠闲的样子
+追溯
+疑问副词，怎么
+表示选择
+山野中的雾气
+气息，这里指风
+离开
+同溟，海
+记载
+海水运动
+悬挂
+振奋，指用力鼓动翅膀
+盘旋飞翔
+完全，确定是
+同敩，教导
+促进
+自我勉励
+困惑
+所以，因此
+味美
+即使
+大概，表示推测
+自我反省
+美味好菜
+职分，本分
+同举，推举
+最好的道理
+女子出嫁
+同鳏，老而无妻的人
+终老，度过晚年
+培养
+抚育
+亲近，奉养
+效力
+憎恶
+深
+藤蔓
+连词，相当于而
+格外，特别
+向下
+凄凉
+在空中
+凄清
+跟随，随从
+向西
+穿透，透视
+静止不动的样子
+忽然
+轻快敏捷的样子
+于是，就
+停留
+大约
+覆盖缠绕
+举
+缓缓地
+打开
+高大开敞
+同又，连接整数和零数
+赠送
+模拟
+无不，都
+用颜色涂染
+顺着，就着
+竟然
+戴着高高的帽子
+极
+满
+……的样子
+正
+同屈，弯曲
+胡须
+像
+说话
+靠近
+相连
+挑选
+不值得
+全，都
+随即，不久
+做记号
+寻找
+顺着，沿着
+不要说，更不必说
+同邀，邀请
+类
+与人世隔绝的地方
+兼词，从这里
+从前的，旧的
+详尽，详细
+竟然，居然
+高兴的样子
+指小孩
+妻子和儿女
+全，都
+渡口
+平坦开阔
+开阔或通达的样子
+尽，指走到尽头
+对……感到诧异
+坠落的花瓣
+沿着，顺着
+指老人
+表诘问，难道
+面对
+懂得
+同才，才能
+方法
+用马鞭驱赶
+等同，一样
+同现，表现
+同饲，喂养
+有时
+著称
+并列而死
+受屈辱
+表推测，恐怕
+同耶，表示疑问`
+            },
+            "九下文言词语综合练": {
+                q: `以**光**先帝遗德
+察纳**雅言**
+此诚危急存亡之**秋**也
+引喻失**义**
+**陟罚臧否**
+不宜**异同**
+以**昭**陛下平明之理
+悉以**咨**之
+必能**裨补阙漏**
+**猥**自枉屈
+三**顾**臣于草庐之中
+由是**感激**
+受任于**败军之际**
+庶竭**驽钝**
+以**彰**其咎
+至于**斟酌损益**
+先帝不以臣**卑鄙**
+中道**崩殂**
+**虽然**，受地于先王
+寡人**谕**矣
+长跪而**谢**之曰
+天下**缟素**
+**休祲**降于天
+**徒**以有先生也
+以五百里之地**易**安陵
+唐雎不**辱**使命
+以头**抢**地耳
+必以**信**
+十年春，齐师**伐**我
+肉食者**鄙**
+何**以**战
+衣食所**安**
+**牺牲**玉帛
+**虽**不能察
+可以**一**战
+公将**鼓**之
+一鼓作**气**
+**再**而衰
+小大之**狱**
+望其旗**靡**
+或遇其**叱咄**
+**缊袍敝衣**
+余幼时即**嗜**学
+**致**书以观
+每**假借**于藏书之家
+**走**送之
+以是人多以书**假**余
+又患无**硕师**名人与游
+未尝稍降**辞色**
+**俟**其欣悦
+四**支**僵劲不能动
+媵人持**汤**沃灌
+同舍生皆**被**绮绣
+右备**容臭**
+尝**趋**百里外
+**方**其理
+**面刺**寡人之过者
+**期年**之后
+王之**蔽**甚矣
+妾之美我者，**私**我也
+邹忌**修**八尺有余
+**诚**知不如徐公美
+朝**服**衣冠
+万钟于我何**加**焉
+故不为**苟得**也
+故患有所不**辟**也
+如使人之所欲莫**甚**于生
+非独贤者有**是**心也
+贤者能勿**丧**耳
+**呼尔**而与之
+**万钟**于我何加焉
+所识穷乏者**得**我与
+所识穷乏者得我**与**
+**乡**为身死而不受
+此之谓失其**本心**
+二者不可**得兼**
+**蹴尔**而与之`,
+                a: `发扬光大
+正确的言论
+时
+适宜，恰当
+升赏降罚，表扬批评
+不同
+显示，表明
+询问
+弥补缺点和疏漏
+委屈，降低身份
+拜访
+感奋激发
+兵败的时候
+比喻才能平庸
+表明，显扬
+考虑得失，适当增减
+地位低下，见识浅陋
+死
+即使这样
+明白，懂得
+道歉
+穿丧服
+吉凶的征兆
+只，只是
+交换
+辱没
+撞击
+实情
+攻打
+目光短浅
+介词，凭，靠
+养生的东西
+祭祀用的猪牛羊
+即使
+打一仗
+击鼓进军
+士气
+第二次
+指诉讼事件
+倒下
+训斥，呵责
+破旧的衣服
+爱好
+取得，指买到
+借
+跑
+借
+才学渊博的老师
+言语和脸色
+等待
+同肢，肢体
+热水
+同披，穿
+香袋
+快步走
+方圆
+当面指责
+满一年
+受蒙蔽
+偏爱
+长，高
+确实
+穿戴
+益处
+苟且取得
+同避，躲避
+超过
+代词，这种
+丧失
+没有礼貌地呼喝着
+优厚的俸禄
+同德，感恩、感激
+同欤，语气词
+同向，从前
+天性，天良
+同时得到
+踩踏着`
+            },
+            "初中通假字综合练": {
+                q: `北**冥**有鱼
+**学**学半
+选贤**与**能
+**矜**、寡、孤、独
+不亦**说**乎
+略无**阙**处
+千**转**不穷
+窥谷忘**反**
+尊君在**不**
+但手熟**尔**
+改容**式**车
+军士吏**被**甲
+孤岂欲卿治经为博士**邪**
+其人**舍**然大喜
+百废**具**兴
+**属**予作文以记之
+甚矣汝之不**惠**
+河曲智叟**亡**以应
+始一**反**焉
+**诎**右臂支船
+八分**有**奇
+便**要**还家
+**止**露尻尾
+**曾**益其所不能
+入则无法家**拂**士
+困于心**衡**于虑
+同舍生皆**被**绮绣
+四**支**僵劲不能动
+食之不能尽其**材**
+才美不外**见**
+**食**马者
+其真无马**邪**
+故患有所不**辟**也
+所识穷乏者**得**我与
+所识穷乏者得我**与**
+**乡**为身死而不受`,
+                a: `同溟，海
+同敩，教导
+同举，推举
+同鳏，老而无妻的人
+同悦，愉快
+同缺，空隙、缺口
+同啭，鸟婉转地叫
+同返，返回
+同否
+同耳，罢了
+同轼，车前横木，作动词，扶轼
+同披，穿戴
+同耶，语气词，吗
+同释，解除、消除
+同俱，全、都
+同嘱，嘱托
+同慧，聪明
+同无，没有
+同返，往返
+同屈，弯曲
+同又，连接整数和零数
+同邀，邀请
+同只，仅
+同增，增加
+同弼，辅佐
+同横，梗塞、不顺
+同披，穿
+同肢，肢体
+同才，才能
+同现，表现
+同饲，喂养
+同耶，表示疑问
+同避，躲避
+同德，感恩、感激
+同欤，语气词
+同向，从前`
+            },
+            "初中实词综合练": {
+                q: `去以六月**息**者也
+**怒**而飞
+**垂**天之云
+**海运**则将徙于南冥
+**抟**扶摇而上者九万里
+**野马**也
+鲦鱼出游**从容**
+子之不知鱼之乐**全**矣
+请**循**其本
+齐谐者，**志**怪者也
+女有**归**
+货**恶**其弃于地也
+然后能**自强**也
+男有**分**
+壮有所**用**
+使老有所**终**
+不独**子**其子
+故人不独**亲**其亲
+虽有**至道**
+讲信**修**睦
+然后能**自反**也
+不知其**旨**也
+虽有**嘉肴**
+**虽**有嘉肴
+教学相**长**
+知**困**
+学而**时**习之
+温故而**知**新
+学而不思则**罔**
+吾日三**省**吾身
+人不知而不**愠**
+不亦**君子**乎
+吾**日**三省吾身
+吾日**三**省吾身
+为**人**谋而不忠乎
+与朋友交而**不信**乎
+**传**不习乎
+**温**故而知新
+温故而知**新**
+温**故**而知新
+思而不学则**殆**
+匹夫不可夺**志**也
+可以**为**师矣
+**逝者**如斯夫
+**切**问而近思
+博学而**笃**志
+**博**学而笃志
+**匹夫**不可夺志也
+不**舍**昼夜
+三军可夺**帅**也
+人不堪其**忧**
+子在**川**上曰
+择其**善者**而从之
+必有我**师**焉
+**子**曰
+曲肱而**枕**之
+饭**疏食**
+**饭**疏食
+知之者不如**好**之者
+**沿**溯阻绝
+自非**亭午**夜分
+不见**曦**月
+**略无**阙处
+至于夏水**襄**陵
+**素**湍绿潭
+林寒涧**肃**
+**良**多趣味
+清**荣**峻茂
+**属**引凄异
+**绝𪩘**多生怪柏
+属**引**凄异
+不以**疾**也
+虽乘**奔**御风
+沿**溯**阻绝
+飞**漱**其间
+泠泠**作**响
+互相**轩邈**
+**经纶**世务者
+猛浪若**奔**
+急湍**甚**箭
+水皆**缥碧**
+横**柯**上蔽
+风烟俱**净**
+鸢飞**戾**天者
+**从**流飘荡
+一百**许**里
+**俄而**雪骤
+寒雪**日**内集
+撒盐空中差可**拟**
+**撒**盐空中差可拟
+白雪纷纷何所**似**
+俄而雪**骤**
+寒雪日**内集**
+公**欣然**曰
+太丘**舍**去
+撒盐空中**差**可拟
+下车**引**之
+门外**戏**
+元方入门不**顾**
+**过**中不至
+陈太丘与友期**行**
+陈太丘与友**期**行
+**未若**柳絮因风起
+相**委**而去
+至于**斟酌损益**
+必能**裨补阙漏**
+以**彰**其咎
+庶竭**驽钝**
+受任于**败军之际**
+三**顾**臣于草庐之中
+**猥**自枉屈
+**陟罚臧否**
+悉以**咨**之
+以**昭**陛下平明之理
+中道**崩殂**
+此诚危急存亡之**秋**也
+以**光**先帝遗德
+察纳**雅言**
+陈康肃公**善**射
+公亦以此**自矜**
+**尝**射于家圃
+徐以杓酌油**沥**之
+**睨**之久而不去
+但微**颔**之
+尔安敢**轻**吾射
+以钱**覆**其口
+**徐**以杓酌油沥之
+康肃笑而**遣**之
+有卖油翁**释**担而立
+已而**之**细柳军
+其将**固**可袭而虏也
+**介胄**之士不拜
+军中**闻**将军令
+**彀**弓弩
+于是天子乃**按辔**徐行
+**锐**兵刃
+乃传言开**壁**门
+将军亚夫持兵**揖**
+将军**约**
+**军**霸上
+匈奴**大**入边
+唐雎不**辱**使命
+以头**抢**地耳
+**休祲**降于天
+天下**缟素**
+长跪而**谢**之曰
+寡人**谕**矣
+以五百里之地**易**安陵
+及鲁肃**过**寻阳
+**见**往事耳
+**及**鲁肃过寻阳
+但当**涉猎**
+即**更**刮目相待
+即更**刮目相待**
+初权**谓**吕蒙曰
+**大兄**何见事之晚乎
+**辞**以多务
+卿今者**才略**
+大兄何**见事**之晚乎
+**孤**岂欲卿治经为博士邪
+孤岂欲卿**治**经为博士邪
+**卿**今当涂掌事
+卿今当涂**掌事**
+卿今**当涂**掌事
+得志与民**由**之
+富贵不能**淫**
+安居而天下**熄**
+岂不**诚**大丈夫哉
+威武不能**屈**
+贫贱不能**移**
+**躇步跐蹈**
+杞国有人**忧**天地崩坠
+得一人之**使**
+丁氏**对**曰
+**废**寝食者
+宋君令人**问**之于丁氏
+亦不能有所**中伤**
+只使**坠**
+因往**晓**之
+**闻**之于宋君
+及其家**穿井**
+及其**家**穿井
+身无所**寄**
+**充塞**四虚
+**蒙络**摇缀
+青树翠**蔓**
+水**尤**清冽
+**可**百许头
+从小丘**西**行百二十步
+**悄怆**幽邃
+**下**见小潭
+皆若**空**游无所依
+日光下**澈**
+**佁然**不动
+往来**翕忽**
+悄怆幽**邃**
+以其境过**清**
+**隶**而从者
+**俶尔**远逝
+横无际**涯**
+锦**鳞**游泳
+吾谁与**归**
+**把**酒临风
+静影沉**璧**
+浮光**跃**金
+予观夫巴陵**胜状**
+岸**芷**汀兰
+**谪**守巴陵郡
+沙鸥翔**集**
+春和**景**明
+**薄**暮冥冥
+隐**曜**藏形
+连月不**开**
+政通人**和**
+长烟**一**空
+政**通**人和
+**越**明年
+增其旧**制**
+浩浩**汤汤**
+迁客**骚人**
+此则岳阳楼之**大观**也
+前人之述**备**矣
+南**极**潇湘
+**迁客**骚人
+朝**晖**夕阴
+霪雨**霏霏**
+**方**七百里
+**惩**山北之塞
+出入之**迂**也
+吾与汝**毕**力平险
+杂然相**许**
+**固**不可彻
+公将**鼓**之
+望其旗**靡**
+一鼓作**气**
+必以**信**
+衣食所**安**
+十年春，齐师**伐**我
+肉食者**鄙**
+**矫**首昂视
+中**峨冠**而多髯者
+盖**简**桃核修狭者为之
+**罔不**因势象形
+罔不**因**势象形
+罔不因势**象**形
+尝**贻**余核舟一
+中**轩敞**者
+**启**窗而观
+石青**糁**之
+中峨冠而多**髯**者
+如有所**语**
+其两膝相**比**者
+绝**类**弥勒
+不**属**
+视**端**容寂
+若听茶声**然**
+**曾**不盈寸
+曾不**盈**寸
+**绝**类弥勒
+清风**徐**来
+**寻**向所志
+便**扶**向路
+问**津**
+寻向所**志**
+**豁然**开朗
+**寻**病终
+**咸**来问讯
+**落英**缤纷
+欲**穷**其林
+**缘**溪行
+**平旷**
+桑竹之**属**
+**悉**如外人
+**黄发**垂髫
+黄发**垂髫**
+并**怡然**自乐
+**具**答之
+甚**异**之
+**阅**十余岁
+沧州南一寺**临**河干
+必于石下迎水处**啮**沙为坎穴
+众服为**确论**
+沧州南一寺临河**干**
+山门**圮**于河
+**求**二石兽于水中
+**棹**数小舟
+众**服**为确论
+**曳**铁钯
+一讲学家**设帐**寺中
+不亦**颠**乎
+转转不**已**
+**湮**于沙上
+可据理**臆断**欤
+遂反**溯流**逆上矣
+**固**颠
+拥**毳衣**炉火
+湖中人鸟声俱**绝**
+**是**日更定矣
+余**拿**一小舟
+雾凇**沆砀**
+上下**一**白
+一童子烧酒炉正**沸**
+余**强**饮三大白而别
+余强饮三大**白**而别
+是金陵人，**客**此
+**及**下船
+**舟子**喃喃曰
+莫说相公**痴**
+是日**更定**矣
+恐前**后**受其敌
+一屠**晚**归
+**缀行**甚远
+屠**惧**
+**投**以骨
+投**以**骨
+一狼得骨**止**
+骨已**尽**
+意将**隧**入以攻其后也
+又数刀**毙**之
+其一**犬**坐于前
+久之，目似**瞑**
+意**暇**甚
+屠**暴**起
+止增**笑耳**
+而**顷刻**两毙
+两狼之并驱**如故**
+乃悟前狼**假寐**
+屠大**窘**
+一狼**洞**其中
+一狼**径去**
+**少时**
+狼不敢**前**
+**弛**担持刀
+屠乃奔**倚**其下
+**苫蔽**成丘
+场主**积薪**其中
+**顾**野有麦场
+狼亦**黠**矣
+**征**于色
+所以动心**忍**性
+人恒**过**
+**劳**其筋骨
+而后**作**
+所以**动**心忍性
+行**拂**乱其所为
+**空乏**其身
+**饿**其体肤
+舜**发**于畎亩之中
+傅说**举**于版筑之间
+必先**苦**其心志
+而后**喻**
+有仙则**名**
+不**蔓**不枝
+**宜**乎众矣
+予**谓**菊
+可远观而不可**亵玩**焉
+可远**观**而不可亵玩焉
+亭亭净**植**
+**亭亭**净植
+香远**益**清
+无**丝竹**之乱耳
+有龙则**灵**
+**斯**是陋室
+**惟**吾德馨
+惟吾德**馨**
+苔痕**上**阶绿
+谈笑有**鸿儒**
+往来无**白丁**
+可以**调**素琴
+香**远**益清
+阅**金经**
+不蔓不**枝**
+无丝竹之**乱**耳
+无**案牍**之劳形
+无案牍之**劳**形
+无案牍之劳**形**
+可爱者甚**蕃**
+**濯**清涟而不妖
+濯清涟而不**妖**
+中通外**直**
+可以调**素琴**
+晓雾将**歇**
+未复有能**与**其奇者
+夕日欲**颓**
+四时**俱**备
+五色**交辉**
+**沉鳞**竞跃
+**相与**步于中庭
+**念**无与为乐者
+庭下如积水**空明**
+非淡泊无以**明志**
+多不接**世**
+年与时**驰**
+险躁则不能**治性**
+**险躁**则不能治性
+淫慢则不能**励精**
+**淫慢**则不能励精
+非志无以**成**学
+非学无以**广才**
+非**宁静**无以致远
+非**淡泊**无以明志
+**俭**以养德
+静以**修身**
+夫君子之**行**
+悲守**穷庐**
+非宁静无以**致远**
+尝**趋**百里外
+余幼时即**嗜**学
+**致**书以观
+每**假借**于藏书之家
+又患无**硕师**名人与游
+未尝稍降**辞色**
+或遇其**叱咄**
+**俟**其欣悦
+**缊袍敝衣**
+以是人多以书**假**余
+**期年**之后
+朝**服**衣冠
+妾之美我者，**私**我也
+**诚**知不如徐公美
+**方**其理
+王之**蔽**甚矣
+**面刺**寡人之过者
+邹忌**修**八尺有余
+非丝非**竹**
+**射**者中
+**名**之者谁
+**觥**筹交错
+醉翁之**意**不在酒
+**颓然**乎其间者
+树林阴**翳**
+太守**谓**谁
+非**丝**非竹
+**弈**者胜
+鸣声**上下**
+若夫日出而林霏**开**
+翼然**临**于泉上者
+**翼然**临于泉上者
+**泻**出于两峰之间者
+望之**蔚然**而深秀者
+林壑**尤**美
+**环**滁皆山也
+得之心而**寓**之酒也
+觥**筹**交错
+若夫日出而林**霏**开
+宴**酣**之乐
+山肴野**蔌**
+泉香而酒**洌**
+**伛偻**提携
+至于**负者**歌于途
+佳木**秀**而繁阴
+野芳**发**而幽香
+云**归**而岩穴暝
+云归而岩穴**暝**
+野**芳**发而幽香
+**骈死**于槽枥之间
+执策而**临**之
+鸣之而不能**通**其意
+策之不以其**道**
+**策**之不以其道
+且欲与常马**等**不可得
+不以千里**称**也
+只**辱**于奴隶人之手
+一食**或**尽粟一石
+此之谓失其**本心**
+故不为**苟得**也
+二者不可**得兼**
+万钟于我何**加**焉
+**万钟**于我何加焉
+**蹴尔**而与之
+**呼尔**而与之
+贤者能勿**丧**耳
+如使人之所欲莫**甚**于生`,
+                a: `气息，这里指风
+振奋，指用力鼓动翅膀
+悬挂
+海水运动
+盘旋飞翔
+山野中的雾气
+轻松悠闲的样子
+完全，确定是
+追溯
+记载
+女子出嫁
+憎恶
+自我勉励
+职分，本分
+效力
+终老，度过晚年
+抚育
+亲近，奉养
+最好的道理
+培养
+自我反省
+味美
+美味好菜
+即使
+促进
+困惑
+按时
+得到
+迷惑
+自我检查，反省
+生气，恼怒
+有道德修养的人
+每天
+泛指多次
+别人
+不诚实
+老师传授的知识
+温习
+新的理解与体会
+学过的知识
+疑惑
+志向
+做，当
+流逝的时光
+恳切
+坚定
+广泛
+指平民中的男子
+舍弃，停息
+主帅
+忧愁
+河，河流
+好的方面，优点
+榜样
+先生，指孔子
+枕着
+粗粮
+吃
+喜爱，爱好
+顺流而下
+正午
+日光，这里指太阳
+完全没有
+冲上、漫上
+白色
+肃杀，凄寒
+甚，很
+树茂盛
+连接
+极高的山峰
+延长
+快
+飞奔的马
+逆流而上
+冲荡
+发出
+向高处和远处伸展
+筹划、治理
+飞奔的马
+超过
+浅青色
+树木的枝干
+消散尽净
+至、到达
+顺、随
+表示大约的数量
+不久，一会儿
+天
+相比
+撒落
+像
+急
+家庭聚会
+高兴的样子
+放弃，丢下
+大体
+拉，牵拉
+玩耍
+回头看
+超过
+出行
+约定
+不如，不及
+舍弃
+考虑得失，适当增减
+弥补缺点和疏漏
+表明，显扬
+比喻才能平庸
+兵败的时候
+拜访
+委屈，降低身份
+升赏降罚，表扬批评
+询问
+显示，表明
+死
+时
+发扬光大
+正确的言论
+擅长
+自夸
+曾经
+下滴
+斜着眼看
+点头
+轻视
+盖
+慢慢地
+打发
+放下
+到，往
+必，一定
+铠甲和头盔
+听从
+张开
+控制住车马
+使……锋利
+营垒
+拱手行礼
+规定
+驻军、驻扎
+大举
+辱没
+撞击
+吉凶的征兆
+穿丧服
+道歉
+明白，懂得
+交换
+经过
+了解
+到了……的时候
+粗略地阅读
+重新
+擦眼相看，指另眼相看
+告诉，对……说
+长兄，对同辈年长者尊称
+推托
+军事或政治的才干谋略
+认清事物
+古时王侯的自称
+研究
+古代君对臣的爱称
+掌管事务
+当道，当权
+遵循
+使……迷惑
+平息，指战火熄灭
+真正，确实
+使……屈服
+使……动摇
+践踏，跳跃
+担忧，发愁
+劳动力
+回答
+停止，废弃
+询问
+打中受伤
+掉落
+告知，开导
+使...听到
+打井
+家里人
+依附，依托
+充满塞满
+覆盖缠绕
+藤蔓
+格外，特别
+大约
+向西
+凄凉
+向下
+在空中
+穿透，透视
+静止不动的样子
+轻快敏捷的样子
+深
+凄清
+跟随，随从
+忽然
+边
+代指鱼
+归依
+持、执
+圆形的玉
+闪动
+胜景，好景色
+香草
+贬官
+停息，聚止
+日光
+迫近
+光芒
+放晴
+和乐
+全
+顺利
+到
+规模
+水势浩大的样子
+诗人
+雄伟景象
+详尽
+至、到达
+贬谪的官员
+日光
+雨雪不断的样子
+面积
+苦于
+曲折，绕远
+尽、全
+赞同
+顽固
+击鼓进军
+倒下
+士气
+实情
+养生的东西
+攻打
+目光短浅
+举
+戴着高高的帽子
+挑选
+无不，都
+顺着，就着
+模拟
+赠送
+高大开敞
+打开
+用颜色涂染
+胡须
+说话
+靠近
+像
+相连
+正
+……的样子
+竟然
+满
+极
+缓缓地
+寻找
+顺着，沿着
+渡口
+做记号
+开阔或通达的样子
+随即，不久
+全，都
+坠落的花瓣
+尽，指走到尽头
+沿着，顺着
+平坦开阔
+类
+全，都
+指老人
+指小孩
+高兴的样子
+详尽，详细
+对……感到诧异
+经过，经历
+靠近
+冲刷
+精当确切的言论
+水边，河岸
+倒塌
+寻找
+划船
+信服
+拖着
+设馆教书
+颠倒，错乱
+停止
+埋没
+主观地判断
+逆流
+固然
+毛皮衣
+消失
+这
+撑，划
+白气弥漫的样子
+全
+沸腾
+勉力，尽力
+酒杯
+客居
+等到
+船夫
+痴迷
+晚上八点左右
+后面
+傍晚
+紧跟在后面走
+害怕
+扔
+介词，把
+停止
+没有了
+从通道
+杀死
+像狗一样
+闭上眼睛
+从容、悠闲
+突然
+笑料罢了
+一会儿
+像原来一样
+假装睡觉
+处境困迫，为难
+打洞
+径直离开
+一会儿
+上前
+卸下
+倚靠
+覆盖、遮掩
+堆积柴草
+回头看，指往旁边看
+狡猾
+表现
+使……坚韧
+犯错误
+使……劳累
+奋起，指有所作为
+使……惊动
+违背
+使……财资缺乏
+使……饥饿
+起，指被任用
+被选拔，被任用
+使……痛苦
+了解、明白
+出名，有名
+长出藤蔓
+应当
+认为
+靠近赏玩
+观赏
+竖立
+耸立的样子
+更加
+借指奏乐的声音
+神异
+这
+只，只是
+品德高尚
+长到，蔓延到
+博学的人
+平民，指无功名的人
+调弄
+远播，传得远
+指佛经
+生出枝条
+使……扰乱
+官府的文书
+使……劳累
+形体、身体
+多
+洗涤
+艳丽
+挺直
+不加装饰的琴
+消散
+参与，指欣赏
+坠落
+都
+交相辉映
+指水中潜游的鱼
+共同，一起
+考虑，想到
+清澈透明
+明确志向
+社会
+疾行，指迅速逝去
+修养性情
+轻薄浮躁
+振奋精神
+放纵懈怠
+达成，成就
+增长才干
+集中精神，不心浮气躁
+内心恬淡，不慕名利
+节俭
+修养自身
+操守、品德
+简陋的房屋
+达到深远的境界
+快步走
+爱好
+取得，指买到
+借
+才学渊博的老师
+言语和脸色
+训斥，呵责
+等待
+破旧的衣服
+借
+满一年
+穿戴
+偏爱
+确实
+方圆
+受蒙蔽
+当面指责
+长，高
+管乐器
+投壶
+命名
+酒杯
+情趣
+倒下的样子，指醉倒
+遮盖
+为，是
+弦乐器
+下棋
+树上树下
+消散
+居高面下
+像鸟张开翅膀一样
+飞泻
+茂盛的样子
+格外
+环绕
+寄托
+酒筹
+雾气
+尽兴地喝酒
+菜蔬
+清醇
+弯腰驼背，指老人
+背着东西的人
+茂盛
+开放
+聚拢
+昏暗
+花
+并列而死
+面对
+懂得
+方法
+用马鞭驱赶
+等同，一样
+著称
+受屈辱
+有时
+天性，天良
+苟且取得
+同时得到
+益处
+优厚的俸禄
+踩踏着
+没有礼貌地呼喝着
+丧失
+超过`
+            },
+            "初中虚词综合练": {
+                q: `**其**正色邪
+子非鱼，**安**知鱼之乐
+**是故**学然后知不足
+**其**此之谓乎
+择其善者**而**从之
+切问**而**近思
+博学**而**笃志
+择其善者而从**之**
+必有我师**焉**
+**于**我如浮云
+曲肱而枕**之**
+知**之**者不如好之者
+学**而**不思则罔
+温故**而**知新
+人不知**而**不愠
+学而时习**之**
+学**而**时习之
+逝者如**斯**夫
+曲肱**而**枕之
+**或**王命急宣
+**虽**乘奔御风
+不**以**疾也
+在昼**犹**昏
+**相**委而去
+未若柳絮**因**风起
+**乃至**
+相委**而**去
+下车引**之**
+**以**我酌油知之
+见**其**发矢十中八九
+**尔**安敢轻吾射
+**而**钱不湿
+**乃**取一葫芦置于地
+睨之久**而**不去
+睨**之**久而不去
+有卖油翁释担**而**立
+公亦**以**此自矜
+**惟**手熟尔
+尔**安**敢轻吾射
+尝射**于**家圃
+**但**微颔之
+**徒**以有先生也
+**虽然**，受地于先王
+非**复**吴下阿蒙
+见往事**耳**
+**但**当涉猎
+肃**遂**拜蒙母
+孤**岂**欲卿治经为博士邪
+辞**以**多务
+天，积气**耳**
+**奈何**忧崩坠乎
+**因**往晓之
+**只**使坠
+**乃**记之而去
+卷石底**以**出
+**微**斯人
+**然则**北通巫峡
+**乃**重修岳阳楼
+**且**焉置土石
+且**焉**置土石
+虽我**之**死
+何**以**战
+**虽**不能察
+**乃**大惊
+不复出**焉**
+**岂**能为暴涨携之去
+二石兽**并**沉焉
+二石兽并沉**焉**
+**然则**天下之事
+**是**非木杮
+**竟**不可得
+岂能**为**暴涨携之去
+**乃**石性坚重
+**凡**河中失石
+**盖**石性坚重
+尔辈不能**究**物理
+湖中焉得**更**有此人
+舟中人两三粒**而已**
+湖中**焉**得更有此人
+投**以**骨
+**盖**以诱敌
+意将隧入**以**攻其后也
+屠自后断**其**股
+**乃**悟前狼假寐
+盖**以**诱敌
+意暇**甚**
+屠**乃**奔倚其下
+两狼之**并**驱如故
+**复**投之
+两狼**之**并驱如故
+一狼**仍**从
+予独爱莲之出淤泥**而**不染
+晋陶渊明**独**爱菊
+可爱**者**甚蕃
+无丝竹**之**乱耳
+予独爱莲**之**出淤泥而不染
+牡丹**之**爱
+**盖**竹柏影也
+但少闲人如吾两人者**耳**
+**但**少闲人如吾两人者耳
+**遂**成枯落
+年**与**时驰
+夫学须静**也**
+静**以**修身
+**其**真无马邪
+**其**真不知马也
+非独贤者有**是**心也`,
+                a: `表示选择
+疑问副词，怎么
+所以，因此
+大概，表示推测
+表顺承
+表并列
+表并列
+代词，代好的方面
+在其中
+对，对于
+代词，代胳膊
+代词，代指学问
+表转折
+表顺承
+表转折
+代词，代学过的知识
+表顺承
+代词，这
+表修饰
+有时
+即使
+认为
+好像，如同
+代词，指我
+乘、借
+才
+表顺承
+代词，代元方
+介词，凭、靠
+代词，指代陈康肃
+代词，你
+连词，表转折
+于是，就
+连词，表修饰
+代词，指代射箭
+连词，表顺承
+介词，凭借
+只，不过
+怎么
+介词，在
+只，不过
+只，只是
+即使这样
+再，又
+表示限止语气，罢了
+只，只是
+于是，就
+副词，难道
+介词，用
+罢了
+为何，为什么
+于是，就
+纵使，即使
+于是，就
+连词，相当于而
+如果没有
+既然这样，那么
+于是，就
+况且
+疑问代词，哪里
+主谓之间，取独
+介词，凭，靠
+即使
+竟然，居然
+兼词，从这里
+怎么
+副词，一起
+兼词，于此，在那里
+既然这样，那么
+这，代词
+终了，最后
+介词，被
+是，表判断
+凡是
+连词，因为
+推究
+还
+罢了
+疑问代词，哪里
+介词，把
+原来是
+连词，表目的，来
+代词，指狼的
+才
+介词，用来
+很
+于是，就
+一起
+又，再
+取独
+仍然
+连词，表转折
+只，惟独
+……的花
+主谓之间，取独
+主谓之间，取独
+宾语前置的标志
+原来是
+罢了
+只是
+最终
+连词，和
+表判断语气
+连词，表示目的，来
+表诘问，难道
+表推测，恐怕
+代词，这种`
+            },
+            "七年级全年综合练": {
+                q: `学**而**不思则罔
+饭**疏食**
+**饭**疏食
+饭疏食饮**水**
+知之者不如**好**之者
+知**之**者不如好之者
+人不堪其**忧**
+**传**不习乎
+学而不思则**罔**
+曲肱而枕**之**
+可以**为**师矣
+**可以**为师矣
+温故而知**新**
+温故而**知**新
+温故**而**知新
+温**故**而知新
+**温**故而知新
+思而不学则**殆**
+子在**川**上曰
+切问**而**近思
+**切**问而近思
+博学**而**笃志
+博学而**笃**志
+**博**学而笃志
+**匹夫**不可夺志也
+三军可夺**帅**也
+曲肱**而**枕之
+**逝者**如斯夫
+曲肱而**枕**之
+择其善者而从**之**
+择其善者**而**从之
+择其**善者**而从之
+必有我师**焉**
+必有我**师**焉
+**于**我如浮云
+不**舍**昼夜
+逝者如**斯**夫
+学**而**时习之
+与朋友交而**不信**乎
+匹夫不可夺**志**也
+**子**曰
+学而**时**习之
+学而时习**之**
+不亦**说**乎
+为**人**谋而不忠乎
+人不知而不**愠**
+不亦**君子**乎
+吾**日**三省吾身
+吾日**三**省吾身
+吾日三**省**吾身
+人不知**而**不愠
+未若柳絮**因**风起
+**未若**柳絮因风起
+撒盐空中差可**拟**
+撒盐空中**差**可拟
+白雪纷纷何所**似**
+俄而雪**骤**
+寒雪**日**内集
+寒雪日**内集**
+陈太丘与友**期**行
+**撒**盐空中差可拟
+**俄而**雪骤
+**相**委而去
+公**欣然**曰
+下车**引**之
+下车引**之**
+相委**而**去
+陈太丘与友期**行**
+相**委**而去
+尊君在**不**
+门外**戏**
+元方入门不**顾**
+**乃至**
+太丘舍**去**
+太丘**舍**去
+**过**中不至
+**躇步跐蹈**
+其人**舍**然大喜
+**因**往晓之
+亦不能有所**中伤**
+只使**坠**
+**只**使坠
+**奈何**忧崩坠乎
+**充塞**四虚
+及其家**穿井**
+天，积气**耳**
+及其**家**穿井
+因往**晓**之
+**闻**之于宋君
+宋君令人**问**之于丁氏
+得一人之**使**
+杞国有人**忧**天地崩坠
+身无所**寄**
+**废**寝食者
+丁氏**对**曰
+**盖**以诱敌
+意将**隧**入以攻其后也
+意将隧入**以**攻其后也
+**止**露尻尾
+屠自后断**其**股
+屠自后断其**股**
+盖**以**诱敌
+乃悟前狼**假寐**
+两狼之**并**驱如故
+一狼**洞**其中
+**乃**悟前狼假寐
+**顾**野有麦场
+禽兽之变诈**几何**哉
+而**顷刻**两毙
+一屠**晚**归
+**缀行**甚远
+屠**惧**
+**投**以骨
+投**以**骨
+一狼得骨**止**
+一狼**仍**从
+**复**投之
+骨已**尽**
+两狼**之**并驱如故
+两狼之并驱**如故**
+屠大**窘**
+狼不敢**前**
+屠**暴**起
+意暇**甚**
+意**暇**甚
+久之，目似**瞑**
+其一**犬**坐于前
+恐前**后**受其敌
+**少时**
+恐前后受其**敌**
+**弛**担持刀
+屠乃奔**倚**其下
+屠**乃**奔倚其下
+**苫蔽**成丘
+场主**积薪**其中
+又数刀**毙**之
+一狼**径去**
+止增**笑耳**
+狼亦**黠**矣
+年与时**驰**
+非学无以**广才**
+非志无以**成**学
+**淫慢**则不能励精
+淫慢则不能**励精**
+**险躁**则不能治性
+非宁静无以**致远**
+年**与**时驰
+非**宁静**无以致远
+意与日**去**
+**遂**成枯落
+多不接**世**
+悲守**穷庐**
+险躁则不能**治性**
+非**淡泊**无以明志
+**俭**以养德
+静**以**修身
+静以**修身**
+夫君子之**行**
+非淡泊无以**明志**
+夫学须静**也**
+尔安敢**轻**吾射
+**但**微颔之
+但微**颔**之
+但手熟**尔**
+**尔**安敢轻吾射
+康肃笑而**遣**之
+**惟**手熟尔
+徐以杓酌油**沥**之
+以钱**覆**其口
+**以**我酌油知之
+尔**安**敢轻吾射
+见**其**发矢十中八九
+**徐**以杓酌油沥之
+**乃**取一葫芦置于地
+陈康肃公**善**射
+**而**钱不湿
+公亦**以**此自矜
+公亦以此**自矜**
+**尝**射于家圃
+尝射**于**家圃
+有卖油翁释担**而**立
+**睨**之久而不去
+睨**之**久而不去
+睨之久**而**不去
+有卖油翁**释**担而立
+睨之久而不**去**
+**卿**今当涂掌事
+孤岂欲卿治经为博士**邪**
+孤岂欲卿治经为**博士**邪
+孤岂欲卿**治**经为博士邪
+孤**岂**欲卿治经为博士邪
+**孤**岂欲卿治经为博士邪
+辞**以**多务
+卿今当涂**掌事**
+**但**当涉猎
+卿今**当涂**掌事
+**辞**以多务
+即更**刮目相待**
+但当**涉猎**
+肃**遂**拜蒙母
+初权**谓**吕蒙曰
+**大兄**何见事之晚乎
+大兄何**见事**之晚乎
+即**更**刮目相待
+非**复**吴下阿蒙
+卿今者**才略**
+及鲁肃**过**寻阳
+**及**鲁肃过寻阳
+见往事**耳**
+见**往事**耳
+**见**往事耳
+二石兽**并**沉焉
+一讲学家**设帐**寺中
+**是**非木杮
+尔辈不能究**物理**
+尔辈不能**究**物理
+**岂**能为暴涨携之去
+**曳**铁钯
+**棹**数小舟
+**竟**不可得
+**求**二石兽于水中
+二石兽并沉**焉**
+众**服**为确论
+山门**圮**于河
+沧州南一寺临河**干**
+沧州南一寺**临**河干
+**阅**十余岁
+必于石下迎水处**啮**沙为坎穴
+可据理**臆断**欤
+**然则**天下之事
+**固**颠
+**湮**于沙上
+转转不**已**
+岂能**为**暴涨携之去
+**盖**石性坚重
+**凡**河中失石
+众服为**确论**
+不亦**颠**乎
+**乃**石性坚重
+岂能为暴涨携之**去**
+遂反**溯流**逆上矣
+牡丹**之**爱
+无丝竹之**乱**耳
+**宜**乎众矣
+谈笑有**鸿儒**
+无**案牍**之劳形
+无丝竹**之**乱耳
+无**丝竹**之乱耳
+阅**金经**
+可以调**素琴**
+无案牍之**劳**形
+往来无**白丁**
+可爱者甚**蕃**
+苔痕**上**阶绿
+惟吾德**馨**
+**惟**吾德馨
+**斯**是陋室
+有龙则**灵**
+有仙则**名**
+可以**调**素琴
+中通外**直**
+可远观而不可**亵玩**焉
+可远**观**而不可亵玩焉
+亭亭净**植**
+**亭亭**净植
+香远**益**清
+香**远**益清
+无案牍之劳**形**
+不**蔓**不枝
+可爱**者**甚蕃
+濯清涟而不**妖**
+**濯**清涟而不妖
+予独爱莲之出淤泥**而**不染
+予独爱莲**之**出淤泥而不染
+晋陶渊明**独**爱菊
+予**谓**菊
+不蔓不**枝**`,
+                a: `表转折
+粗粮
+吃
+冷水
+喜爱，爱好
+代词，代指学问
+忧愁
+老师传授的知识
+迷惑
+代词，代胳膊
+做，当
+可以凭借
+新的理解与体会
+得到
+表顺承
+学过的知识
+温习
+疑惑
+河，河流
+表并列
+恳切
+表并列
+坚定
+广泛
+指平民中的男子
+主帅
+表修饰
+流逝的时光
+枕着
+代词，代好的方面
+表顺承
+好的方面，优点
+在其中
+榜样
+对，对于
+舍弃，停息
+代词，这
+表顺承
+不诚实
+志向
+先生，指孔子
+按时
+代词，代学过的知识
+同悦，愉快
+别人
+生气，恼怒
+有道德修养的人
+每天
+泛指多次
+自我检查，反省
+表转折
+乘、借
+不如，不及
+相比
+大体
+像
+急
+天
+家庭聚会
+约定
+撒落
+不久，一会儿
+代词，指我
+高兴的样子
+拉，牵拉
+代词，代元方
+表顺承
+出行
+舍弃
+同否
+玩耍
+回头看
+才
+离开
+放弃，丢下
+超过
+践踏，跳跃
+同释，解除、消除
+于是，就
+打中受伤
+掉落
+纵使，即使
+为何，为什么
+充满塞满
+打井
+罢了
+家里人
+告知，开导
+使...听到
+询问
+劳动力
+担忧，发愁
+依附，依托
+停止，废弃
+回答
+原来是
+从通道
+连词，表目的，来
+同只，仅
+代词，指狼的
+大腿
+介词，用来
+假装睡觉
+一起
+打洞
+才
+回头看，指往旁边看
+多少
+一会儿
+傍晚
+紧跟在后面走
+害怕
+扔
+介词，把
+停止
+仍然
+又，再
+没有了
+取独
+像原来一样
+处境困迫，为难
+上前
+突然
+很
+从容、悠闲
+闭上眼睛
+像狗一样
+后面
+一会儿
+攻击
+卸下
+倚靠
+于是，就
+覆盖、遮掩
+堆积柴草
+杀死
+径直离开
+笑料罢了
+狡猾
+疾行，指迅速逝去
+增长才干
+达成，成就
+放纵懈怠
+振奋精神
+轻薄浮躁
+达到深远的境界
+连词，和
+集中精神，不心浮气躁
+消失、逝去
+最终
+社会
+简陋的房屋
+修养性情
+内心恬淡，不慕名利
+节俭
+连词，表示目的，来
+修养自身
+操守、品德
+明确志向
+表判断语气
+轻视
+只，不过
+点头
+同耳，罢了
+代词，你
+打发
+只，不过
+下滴
+盖
+介词，凭、靠
+怎么
+代词，指代陈康肃
+慢慢地
+于是，就
+擅长
+连词，表转折
+介词，凭借
+自夸
+曾经
+介词，在
+连词，表顺承
+斜着眼看
+代词，指代射箭
+连词，表修饰
+放下
+离开
+古代君对臣的爱称
+同耶，语气词，吗
+专掌经学传授的学官
+研究
+副词，难道
+古时王侯的自称
+介词，用
+掌管事务
+只，只是
+当道，当权
+推托
+擦眼相看，指另眼相看
+粗略地阅读
+于是，就
+告诉，对……说
+长兄，对同辈年长者尊称
+认清事物
+重新
+再，又
+军事或政治的才干谋略
+经过
+到了……的时候
+表示限止语气，罢了
+历史
+了解
+副词，一起
+设馆教书
+这，代词
+事物的道理、规律
+推究
+怎么
+拖着
+划船
+终了，最后
+寻找
+兼词，于此，在那里
+信服
+倒塌
+水边，河岸
+靠近
+经过，经历
+冲刷
+主观地判断
+既然这样，那么
+固然
+埋没
+停止
+介词，被
+连词，因为
+凡是
+精当确切的言论
+颠倒，错乱
+是，表判断
+离开
+逆流
+宾语前置的标志
+使……扰乱
+应当
+博学的人
+官府的文书
+主谓之间，取独
+借指奏乐的声音
+指佛经
+不加装饰的琴
+使……劳累
+平民，指无功名的人
+多
+长到，蔓延到
+品德高尚
+只，只是
+这
+神异
+出名，有名
+调弄
+挺直
+靠近赏玩
+观赏
+竖立
+耸立的样子
+更加
+远播，传得远
+形体、身体
+长出藤蔓
+……的花
+艳丽
+洗涤
+连词，表转折
+主谓之间，取独
+只，惟独
+认为
+生出枝条`
+            }
+        };
+
+        // ==========================================
+        // 1. 核心配置与状态
+        // ==========================================
+        const FRUIT_LEVELS = {
+            1: { emoji: '🍇', color: 'radial-gradient(circle at 30% 30%, #ce93d8, #8e24aa)', bg: '#9c27b0', score: 0 },
+            2: { emoji: '🍎', color: 'radial-gradient(circle at 30% 30%, #ef9a9a, #e53935)', bg: '#f44336', score: 2 },
+            3: { emoji: '🍊', color: 'radial-gradient(circle at 30% 30%, #ffcc80, #fb8c00)', bg: '#ff9800', score: 4 },
+            4: { emoji: '🍋', color: 'radial-gradient(circle at 30% 30%, #fff59d, #fdd835)', bg: '#ffeb3b', score: 6 },
+            5: { emoji: '🥥', color: 'radial-gradient(circle at 30% 30%, #bcaaa4, #6d4c41)', bg: '#795548', score: 8 },
+            6: { emoji: '🍉', color: 'radial-gradient(circle at 30% 30%, #a5d6a7, #388e3c)', bg: '#4caf50', score: 10 }
+        };
+
+        let gameState = {
+            isPlaying: false,
+            score: 0,
+            pendingDrops: [],  
+            activeBlocks: [],  
+            selectedBlock: null, 
+            matterEngine: null,
+            matterRender: null,
+            tankWidth: 0,
+            tankHeight: 0,
+            periodicDropTimer: null, 
+            organizeCount: 3, 
+            hasAlertedOrganize: false,
+            isInitialDropping: false, // 标记初始掉落期，阻断早期警报
+            isBatchDropping: false
+        };
+
+        // ==========================================
+        // 2. 音效引擎 (Web Audio API)
+        // ==========================================
+        let audioCtx = null;
+        function initAudio() { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); if (audioCtx.state === 'suspended') audioCtx.resume(); }
+
+        const playTone = (freq, type, duration, vol) => {
+            if(!audioCtx) return; initAudio();
+            const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.type = type; osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+            osc.start(); osc.stop(audioCtx.currentTime + duration);
+        };
+
+        const playSound = {
+            select: () => playTone(600, 'sine', 0.1, 0.2),
+            pop: () => { playTone(800, 'sine', 0.1, 0.2); setTimeout(()=>playTone(1200, 'sine', 0.1, 0.2), 50); },
+            error: () => playTone(200, 'sawtooth', 0.3, 0.2),
+            upgradeSmall: () => playTone(1500, 'sine', 0.2, 0.2),
+            upgradeBig: () => playTone(300, 'square', 0.3, 0.3),
+            alarm: () => { 
+                if(!audioCtx) return; initAudio();
+                playTone(800, 'square', 0.1, 0.1);
+                setTimeout(()=>playTone(1000, 'square', 0.1, 0.1), 100);
+            },
+            watermelon: () => {
+                if(!audioCtx) return; initAudio();
+                const now = audioCtx.currentTime;
+                const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+                osc.connect(gain); gain.connect(audioCtx.destination);
+                osc.type = 'square'; osc.frequency.setValueAtTime(100, now); osc.frequency.exponentialRampToValueAtTime(20, now + 1.0);
+                gain.gain.setValueAtTime(0.5, now); gain.gain.exponentialRampToValueAtTime(0.01, now + 1.0);
+                osc.start(); osc.stop(now + 1.0);
+                const bufferSize = audioCtx.sampleRate * 0.5; const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+                const data = buffer.getChannelData(0); for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+                const noise = audioCtx.createBufferSource(); noise.buffer = buffer;
+                const filter = audioCtx.createBiquadFilter(); filter.type = 'lowpass'; filter.frequency.setValueAtTime(1000, now); filter.frequency.exponentialRampToValueAtTime(100, now+0.5);
+                const noiseGain = audioCtx.createGain(); noiseGain.gain.setValueAtTime(0.8, now); noiseGain.gain.exponentialRampToValueAtTime(0.01, now+0.5);
+                noise.connect(filter).connect(noiseGain).connect(audioCtx.destination); noise.start(now);
+            },
+            fail: () => { playTone(150, 'sawtooth', 1.0, 0.4); setTimeout(()=>playTone(100, 'sawtooth', 1.5, 0.5), 200); },
+            bonusCheer: () => { 
+                if(!audioCtx) return; initAudio();
+                const now = audioCtx.currentTime;
+                [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => {
+                    const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+                    osc.connect(gain); gain.connect(audioCtx.destination);
+                    osc.type = 'sine'; osc.frequency.setValueAtTime(freq, now + i*0.08);
+                    gain.gain.setValueAtTime(0, now + i*0.08);
+                    gain.gain.linearRampToValueAtTime(0.3, now + i*0.08 + 0.04);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + i*0.08 + 0.3);
+                    osc.start(now + i*0.08); osc.stop(now + i*0.08 + 0.3);
+                });
+            }
+        };
+
+        // ==========================================
+        // 3. 物理引擎与 DOM 同步 (Matter.js)
+        // ==========================================
+        const Engine = Matter.Engine, Render = Matter.Render, Runner = Matter.Runner,
+              Bodies = Matter.Bodies, Composite = Matter.Composite, Events = Matter.Events;
+
+        function initPhysics() {
+            if (gameState.matterEngine) {
+                Runner.stop(gameState.runner); Engine.clear(gameState.matterEngine);
+                document.getElementById('tank-container').innerHTML = '<div id="danger-line"></div>';
+            }
+
+            const tank = document.getElementById('tank-container');
+            gameState.tankWidth = tank.clientWidth;
+            gameState.tankHeight = tank.clientHeight;
+
+            gameState.matterEngine = Engine.create();
+            gameState.matterEngine.gravity.y = 1.2; 
+            const world = gameState.matterEngine.world;
+
+            const wallOpts = { isStatic: true, render: { visible: false }, friction: 0.5, restitution: 0.2 };
+            const thick = 100;
+            const bottomWall = Bodies.rectangle(gameState.tankWidth/2, gameState.tankHeight + thick/2 - 20, gameState.tankWidth, thick, wallOpts);
+            gameState.bottomWall = bottomWall; 
+
+            Composite.add(world, [
+                Bodies.rectangle(-thick/2, gameState.tankHeight/2, thick, gameState.tankHeight*2, wallOpts),
+                Bodies.rectangle(gameState.tankWidth + thick/2, gameState.tankHeight/2, thick, gameState.tankHeight*2, wallOpts),
+                bottomWall
+            ]);
+
+            gameState.runner = Runner.create();
+            Runner.run(gameState.runner, gameState.matterEngine);
+
+            Events.on(gameState.matterEngine, 'afterUpdate', syncDOM);
+            Events.on(gameState.matterEngine, 'afterUpdate', checkFailure);
+        }
+
+        function getSizeByLevel(level) {
+            let baseRatio = 0.12;
+            if(level===2) baseRatio=0.16;
+            else if(level===3) baseRatio=0.22;
+            else if(level===4) baseRatio=0.28;
+            else if(level===5) baseRatio=0.35;
+            else if(level>=6) baseRatio=0.43 + (level-6)*0.04;
+            return Math.min(gameState.tankWidth * baseRatio, gameState.tankWidth * 0.85);
+        }
+
+        function createBlock(type, text, rawText, answerText, level, dropX, dropY, isUpgrade = false) {
+            const size = getSizeByLevel(level);
+            const body = Bodies.rectangle(dropX, dropY, size, size, {
+                restitution: 0.3, friction: 0.5, density: 0.001,
+                chamfer: { radius: size * 0.2 } 
+            });
+
+            const el = document.createElement('div');
+            el.className = `block-dom block-type-${type}`;
+            el.style.width = `${size}px`; el.style.height = `${size}px`;
+            el.style.transform = `translate3d(${dropX - size/2}px, ${dropY - size/2}px, 0) rotate(0rad)`;
+            
+            const lvlData = FRUIT_LEVELS[Math.min(level, 6)];
+            let emojiHtml = '';
+            let bgStyle = '';
+            
+            if (type === 'q') {
+                emojiHtml = `<div class="bg-emoji" style="bottom:-5px; right:-5px;">${lvlData.emoji}</div>`;
+            } else {
+                bgStyle = `background: ${lvlData.color};`;
+                emojiHtml = `
+                    <div class="bg-emoji" style="top:-10px; left:-10px; transform:rotate(-20deg);">${lvlData.emoji}</div>
+                    <div class="bg-emoji" style="bottom:-10px; right:-10px; transform:rotate(15deg);">${lvlData.emoji}</div>
+                `;
+            }
+
+            const cleanLen = rawText.replace(/\*/g, '').length;
+            let cqValue = cleanLen <= 4 ? 30 : (cleanLen <= 8 ? 20 : (cleanLen <= 12 ? 15 : 12));
+            const formattedText = text.replace(/\*\*(.*?)\*\*/g, '<span class="highlight">$1</span>');
+            
+            el.innerHTML = `
+                <div class="scale-wrapper ${isUpgrade ? 'upgrade-anim' : ''}" style="width:100%; height:100%; border-radius:inherit; position:relative;">
+                    <div class="bg-layer" style="${bgStyle}">
+                        ${emojiHtml}
+                    </div>
+                    <div class="text-wrapper">
+                        <span style="font-size:${cqValue}cqmin; overflow:hidden;">${formattedText}</span>
+                    </div>
+                </div>
+            `;
+
+            el.addEventListener('pointerdown', (e) => { e.preventDefault(); handleBlockClick(blockData); });
+
+            document.getElementById('tank-container').appendChild(el);
+            Composite.add(gameState.matterEngine.world, body);
+
+            const blockData = { id: Math.random().toString(36).substr(2,9), body, el, type, level, text, rawText, answerText };
+            gameState.activeBlocks.push(blockData);
+            return blockData;
+        }
+
+        function syncDOM() {
+            gameState.activeBlocks.forEach(b => {
+                const pos = b.body.position;
+                const angle = b.body.angle;
+                b.el.style.transform = `translate3d(${pos.x - parseFloat(b.el.style.width)/2}px, ${pos.y - parseFloat(b.el.style.height)/2}px, 0) rotate(${angle}rad)`;
+                
+                const textWrapper = b.el.querySelector('.text-wrapper');
+                if(textWrapper) {
+                    textWrapper.style.transform = `rotate(${-angle}rad)`;
+                }
+            });
+        }
+
+        let failTimer = 0;
+        function checkFailure() {
+            if(!gameState.isPlaying || gameState.isInitialDropping) return;
+            const topLimitY = gameState.tankHeight * 0.08; 
+            let isOverflow = false;
+
+            for(let i=0; i<gameState.activeBlocks.length; i++) {
+                let b = gameState.activeBlocks[i];
+                if (b.body.bounds.min.y < topLimitY && b.body.speed < 0.5) {
+                    isOverflow = true; break;
+                }
+            }
+
+            const branch = document.getElementById('branch-bottom');
+            const dangerLine = document.getElementById('danger-line');
+
+            // 只有持续超限（超过500ms）才触发闪烁和警告，中断则立即恢复
+            if (isOverflow) {
+                failTimer += 16.66; // 假设 60fps
+                
+                if (failTimer > 500) {
+                    branch.classList.add('branch-flash');
+                    dangerLine.classList.add('danger-flash');
+                    
+                    // 首次且超过 500ms（确认超限红光亮起）才触发整理抖动
+                    if (!gameState.hasAlertedOrganize && gameState.organizeCount > 0) {
+                        gameState.hasAlertedOrganize = true;
+                        document.getElementById('btn-organize').classList.add('shake-alert');
+                    }
+
+                    let beepInterval = failTimer > 3000 ? 500 : 1000;
+                    if (Math.floor(failTimer) % beepInterval < 17) {
+                        playSound.alarm();
+                    }
+
+                    if (failTimer > 5000) { 
+                        gameState.isPlaying = false; 
+                        if (gameState.periodicDropTimer) clearInterval(gameState.periodicDropTimer);
+                        
+                        branch.classList.remove('branch-flash');
+                        dangerLine.classList.remove('danger-flash');
+                        branch.classList.add('branch-broken');
+                        
+                        if(gameState.bottomWall) {
+                            Composite.remove(gameState.matterEngine.world, gameState.bottomWall);
+                            gameState.bottomWall = null;
+                        }
+                        
+                        setTimeout(() => {
+                            endGame("树枝断裂，水果散落！挑战失败！");
+                        }, 3000); 
+                    }
+                }
+            } else {
+                failTimer = 0;
+                branch.classList.remove('branch-flash');
+                dangerLine.classList.remove('danger-flash');
+            }
+        }
+
+        function destroyBlock(block) {
+            Composite.remove(gameState.matterEngine.world, block.body);
+            block.el.remove();
+            gameState.activeBlocks = gameState.activeBlocks.filter(b => b.id !== block.id);
+        }
+
+        // ==========================================
+        // 4. 游戏逻辑与合成规则
+        // ==========================================
+        function handleBlockClick(block) {
+            if(!gameState.isPlaying) return;
+            initAudio(); playSound.select();
+
+            if (!gameState.selectedBlock) {
+                block.el.classList.add('selected'); gameState.selectedBlock = block;
+                return;
+            }
+
+            if (gameState.selectedBlock.id === block.id) {
+                block.el.classList.remove('selected'); gameState.selectedBlock = null;
+                return;
+            }
+
+            const b1 = gameState.selectedBlock;
+            const b2 = block;
+
+            if (b1.type === b2.type) {
+                b1.el.classList.remove('selected');
+                b2.el.classList.add('selected');
+                gameState.selectedBlock = b2;
+                return;
+            }
+
+            // 匹配检查
+            if (b1.answerText === b2.answerText) {
+                processMatch(b1, b2);
+            } else {
+                playSound.error();
+                b1.el.classList.remove('selected');
+                b1.el.classList.add('error-shake'); b2.el.classList.add('error-shake');
+                setTimeout(() => { b1.el.classList.remove('error-shake'); b2.el.classList.remove('error-shake'); }, 400);
+                gameState.selectedBlock = null;
+            }
+        }
+
+        function spawnParticles(x, y, color) {
+            const container = document.getElementById('tank-container');
+            for(let i=0; i<15; i++) {
+                const p = document.createElement('div');
+                p.className = 'splash-particle';
+                p.style.background = color;
+                p.style.width = Math.random()*15 + 5 + 'px';
+                p.style.height = p.style.width;
+                p.style.left = x + 'px'; p.style.top = y + 'px';
+                p.style.setProperty('--tx', (Math.random()-0.5)*200 + 'px');
+                p.style.setProperty('--ty', (Math.random()-0.5)*200 + 'px');
+                container.appendChild(p);
+                setTimeout(()=>p.remove(), 600);
+            }
+        }
+
+        function hasMatchableBlocks() {
+            let blocksByAnswer = {};
+            for (let i = 0; i < gameState.activeBlocks.length; i++) {
+                let b = gameState.activeBlocks[i];
+                if (!blocksByAnswer[b.answerText]) blocksByAnswer[b.answerText] = { q: 0, a: 0 };
+                blocksByAnswer[b.answerText][b.type]++;
+            }
+            for (let ans in blocksByAnswer) {
+                if (blocksByAnswer[ans].q > 0 && blocksByAnswer[ans].a > 0) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        function triggerBatchDrop(count) {
+            if (gameState.isBatchDropping) return;
+            gameState.isBatchDropping = true;
+            let dropCount = Math.min(count, gameState.pendingDrops.length);
+            let dropIndex = 0;
+            
+            const burstInterval = setInterval(() => {
+                if(!gameState.isPlaying) { 
+                    clearInterval(burstInterval); 
+                    gameState.isBatchDropping = false;
+                    return; 
+                }
+                if(dropIndex >= dropCount) {
+                    clearInterval(burstInterval);
+                    gameState.isBatchDropping = false;
+                    setTimeout(checkWinCondition, 500); 
+                    return;
+                }
+                dropNextPending();
+                dropIndex++;
+            }, 150);
+        }
+
+        function processMatch(b1, b2, isBonus = false) {
+            playSound.pop();
+            const cx = (b1.body.position.x + b2.body.position.x)/2;
+            const cy = (b1.body.position.y + b2.body.position.y)/2;
+            spawnParticles(cx, cy, FRUIT_LEVELS[Math.min(b1.level, 6)].bg);
+
+            // 联动小动物欢呼动画 (福利环节的自动消除不影响)
+            if (!isBonus) {
+                const animals = document.querySelectorAll('.animal');
+                animals.forEach(a => {
+                    a.classList.remove('cheer-anim');
+                    void a.offsetWidth; 
+                    a.classList.add('cheer-anim');
+                });
+            }
+
+            let lA = b1.level, lB = b2.level;
+            
+            destroyBlock(b1); 
+            destroyBlock(b2);
+            
+            if (!isBonus) gameState.selectedBlock = null;
+
+            addScore(2);
+
+            let mutateTarget = null;
+            let targetNewLevel = 1;
+
+            // 过滤掉当前正在处理的块，防止自己升级自己
+            let activeCandidates = gameState.activeBlocks.filter(b => b.id !== b1.id && b.id !== b2.id);
+
+            const fallbackUpgrade = () => {
+                let validBlocks = activeCandidates.filter(b => b.level < 6);
+                if (validBlocks.length > 0) {
+                    let maxLevel = Math.max(...validBlocks.map(b => b.level));
+                    let maxCandidates = validBlocks.filter(b => b.level === maxLevel);
+                    mutateTarget = maxCandidates[Math.floor(Math.random() * maxCandidates.length)];
+                    targetNewLevel = maxLevel + 1;
+                } else if (activeCandidates.length > 0) {
+                    let minLevel = Math.min(...activeCandidates.map(b => b.level));
+                    let minCandidates = activeCandidates.filter(b => b.level === minLevel);
+                    mutateTarget = minCandidates[Math.floor(Math.random() * minCandidates.length)];
+                    targetNewLevel = minLevel + 1;
+                }
+            };
+
+            if (lA === lB) {
+                let candidates = activeCandidates.filter(b => b.level === lA);
+                if (candidates.length > 0) {
+                    mutateTarget = candidates[Math.floor(Math.random() * candidates.length)];
+                    targetNewLevel = lA + 1;
+                } else {
+                    fallbackUpgrade();
+                }
+            } else {
+                let lMin = Math.min(lA, lB), lMax = Math.max(lA, lB);
+                let c1 = activeCandidates.filter(b => b.level === lMin);
+                if (c1.length > 0) {
+                    mutateTarget = c1[Math.floor(Math.random() * c1.length)];
+                    targetNewLevel = lMin + 1;
+                } else {
+                    let c2 = activeCandidates.filter(b => b.level < lMax);
+                    if (c2.length > 0) {
+                        let highestBelowMax = Math.max(...c2.map(b => b.level));
+                        let bestCandidates = c2.filter(b => b.level === highestBelowMax);
+                        mutateTarget = bestCandidates[Math.floor(Math.random() * bestCandidates.length)];
+                        targetNewLevel = lMax;
+                    } else {
+                        fallbackUpgrade();
+                    }
+                }
+            }
+
+            if (mutateTarget) {
+                upgradeBlock(mutateTarget, targetNewLevel);
+            }
+
+            // --- 惊喜福利环节 ---
+            if (!isBonus && lA !== lB) {
+                let diff = Math.abs(lA - lB);
+                let pairsNeeded = diff * 2;
+                
+                let blocksByAnswer = {};
+                gameState.activeBlocks.forEach(b => {
+                    if (!blocksByAnswer[b.answerText]) blocksByAnswer[b.answerText] = { q: [], a: [] };
+                    blocksByAnswer[b.answerText][b.type].push(b);
+                });
+                
+                let validPairs = [];
+                for (let ans in blocksByAnswer) {
+                    let qs = blocksByAnswer[ans].q;
+                    let as = blocksByAnswer[ans].a;
+                    let pairsCount = Math.min(qs.length, as.length);
+                    for (let i=0; i<pairsCount; i++) {
+                        validPairs.push([qs[i], as[i]]);
+                    }
+                }
+                
+                validPairs = validPairs.sort(() => Math.random() - 0.5);
+                
+                if (validPairs.length > 0) {
+                    // 若不足 n*2 组，则消除现有数量即可
+                    let toProcessCount = Math.min(validPairs.length, pairsNeeded);
+                    let toProcess = validPairs.slice(0, toProcessCount);
+                    
+                    // 播放福利提示
+                    const bonusAlert = document.getElementById('bonus-alert');
+                    bonusAlert.classList.remove('bonus-show');
+                    void bonusAlert.offsetWidth;
+                    bonusAlert.classList.add('bonus-show');
+                    playSound.bonusCheer();
+
+                    toProcess.forEach((pair, index) => {
+                        setTimeout(() => {
+                            if (gameState.activeBlocks.find(b=>b.id===pair[0].id) && gameState.activeBlocks.find(b=>b.id===pair[1].id)) {
+                                processMatch(pair[0], pair[1], true); 
+                            }
+                            if (index === toProcess.length - 1) {
+                                setTimeout(checkWinCondition, 600);
+                            }
+                        }, (index+1)*250);
+                    });
+                }
+            }
+
+            if (!isBonus) {
+                setTimeout(checkWinCondition, 500);
+            }
+        }
+
+        function upgradeBlock(oldBlock, newLevel) {
+            const x = oldBlock.body.position.x;
+            const y = oldBlock.body.position.y;
+            const vx = oldBlock.body.velocity.x;
+            const vy = oldBlock.body.velocity.y;
+            
+            const newBlock = createBlock(oldBlock.type, oldBlock.text, oldBlock.rawText, oldBlock.answerText, newLevel, x, y, true);
+            Matter.Body.setVelocity(newBlock.body, {x: vx, y: vy});
+            
+            destroyBlock(oldBlock);
+
+            let addPts = FRUIT_LEVELS[Math.min(newLevel, 6)].score;
+            if(newLevel > 6) addPts = 10; 
+            addScore(addPts);
+
+            spawnParticles(x, y, FRUIT_LEVELS[Math.min(newLevel, 6)].bg);
+            if (newLevel === 6) {
+                playSound.watermelon();
+                showWatermelonAnim(x, y);
+            } else if (newLevel > 4) {
+                playSound.upgradeBig();
+            } else {
+                playSound.upgradeSmall();
+            }
+        }
+
+        function addScore(pts) {
+            gameState.score += pts;
+            document.getElementById('player-score').innerText = gameState.score;
+            document.getElementById('player-score').style.transform = "scale(1.5)";
+            setTimeout(()=>document.getElementById('player-score').style.transform="scale(1)", 200);
+        }
+
+        function showWatermelonAnim(x, y) {
+            const container = document.getElementById('tank-container');
+            const w = document.createElement('div');
+            w.className = 'watermelon-anim'; w.innerText = '🍉';
+            w.style.left = x + 'px'; w.style.top = y + 'px';
+            container.appendChild(w);
+            setTimeout(()=>w.remove(), 1500);
+        }
+
+        // ==========================================
+        // 5. 流程控制 (掉落与胜负)
+        // ==========================================
+        function dropNextPending() {
+            if (gameState.pendingDrops.length === 0) return;
+            const data = gameState.pendingDrops.pop();
+            const dropX = gameState.tankWidth * 0.2 + Math.random() * (gameState.tankWidth * 0.6);
+            const dropY = -50;
+            createBlock(data.type, data.text, data.rawText, data.answerText, 1, dropX, dropY);
+        }
+
+        function checkWinCondition() {
+            if (!gameState.isPlaying) return;
+            if (gameState.pendingDrops.length === 0 && gameState.activeBlocks.length === 0) {
+                triggerWin();
+            } else if (gameState.pendingDrops.length > 0 && !hasMatchableBlocks() && !gameState.isInitialDropping && !gameState.isBatchDropping) {
+                // 如果场上已经没有可以供消除的内容，则一次性掉落1组（20个）方块兜底机制
+                triggerBatchDrop(20);
+            }
+        }
+
+        function triggerWin() {
+            gameState.isPlaying = false;
+            if (gameState.periodicDropTimer) clearInterval(gameState.periodicDropTimer);
+            playSound.watermelon();
+            document.getElementById('win-overlay').style.display = 'flex';
+            
+            for(let i=0; i<30; i++) {
+                setTimeout(() => {
+                    const f = document.createElement('div'); f.className = 'fruit-rain';
+                    f.innerText = ['🍉','🍎','🍇','🍊','🍋','🥥'][Math.floor(Math.random()*6)];
+                    f.style.left = Math.random() * 100 + 'vw';
+                    f.style.animationDuration = (2 + Math.random()*2) + 's';
+                    document.getElementById('win-overlay').appendChild(f);
+                }, Math.random() * 2000);
+            }
+
+            setTimeout(() => {
+                document.getElementById('win-overlay').style.display = 'none';
+                endGame("完美通关！全清达成！");
+            }, 4000);
+        }
+
+        function endGame(msg) {
+            gameState.isPlaying = false;
+            if (gameState.periodicDropTimer) clearInterval(gameState.periodicDropTimer);
+            playSound.fail();
+            document.getElementById('btn-stop-game').style.display = 'none';
+            if(gameState.score > 0) saveScore(gameState.playerName, gameState.score);
+            
+            document.getElementById('result-title').innerText = msg;
+            document.getElementById('result-score').innerText = gameState.score;
+            document.getElementById('results-modal').style.display = 'flex';
+        }
+
+        // 彻底清空与还原逻辑
+        window.closeResults = function() {
+            document.getElementById('results-modal').style.display = 'none';
+            if (gameState.periodicDropTimer) clearInterval(gameState.periodicDropTimer);
+            if(gameState.matterEngine) {
+                Runner.stop(gameState.runner); Engine.clear(gameState.matterEngine);
+                document.getElementById('tank-container').innerHTML = '<div id="danger-line"></div>';
+            }
+            gameState.activeBlocks = [];
+            gameState.isBatchDropping = false;
+            failTimer = 0;
+            
+            const branch = document.getElementById('branch-bottom');
+            if(branch) branch.classList.remove('branch-flash', 'branch-broken');
+        }
+
+        // ==========================================
+        // 6. 界面与启动流
+        // ==========================================
+        const elements = {
+            sidebar: document.getElementById('sidebar'),
+            toggleSidebar: document.getElementById('toggle-sidebar'),
+            startBtn: document.getElementById('start-game-btn'),
+            btnRun: document.getElementById('btn-run')
+        };
+        
+        setTimeout(() => {
+            elements.toggleSidebar.addEventListener('click', () => { 
+                elements.sidebar.classList.toggle('open'); 
+                elements.toggleSidebar.classList.toggle('open'); 
+                initAudio(); 
+            });
+        }, 100);
+        
+        elements.btnRun.addEventListener('click', () => { 
+            elements.sidebar.classList.remove('open'); 
+            elements.toggleSidebar.classList.remove('open'); 
+            document.getElementById('start-screen').style.display = 'flex';
+        });
+
+        elements.startBtn.addEventListener('click', () => { 
+            document.getElementById('start-screen').style.display = 'none'; 
+            preStartGame(); 
+        });
+        
+        document.getElementById('btn-stop-game').addEventListener('click', () => { if(gameState.isPlaying) endGame("已见好就收，安全撤离！"); });
+
+        // 整理按钮逻辑
+        document.getElementById('btn-organize').addEventListener('click', () => {
+            if(!gameState.isPlaying || gameState.organizeCount <= 0) return;
+            gameState.organizeCount--;
+            
+            const btn = document.getElementById('btn-organize');
+            btn.innerText = `🧹 整理 (${gameState.organizeCount})`;
+            btn.classList.remove('shake-alert');
+
+            if(gameState.organizeCount === 0) {
+                btn.style.background = '#e0e0e0';
+                btn.style.color = '#999';
+                btn.style.boxShadow = 'none';
+                btn.style.cursor = 'not-allowed';
+            }
+
+            initAudio();
+            playSound.pop();
+            
+            // 向上抛起场上所有方块
+            gameState.activeBlocks.forEach(b => {
+                Matter.Body.setVelocity(b.body, { 
+                    x: (Math.random() - 0.5) * 4, 
+                    y: -25 - Math.random() * 5
+                });
+            });
+        });
+
+        document.getElementById('btn-restart').addEventListener('click', () => {
+            closeResults();
+            preStartGame();
+        });
+
+        document.getElementById('btn-back-sidebar').addEventListener('click', () => {
+            closeResults();
+            elements.sidebar.classList.add('open');
+            elements.toggleSidebar.classList.add('open');
+        });
+
+        function shuffleArray(arr) { for(let i=arr.length-1; i>0; i--){ const j=Math.floor(Math.random()*(i+1)); [arr[i], arr[j]]=[arr[j], arr[i]]; } return arr; }
+
+        function preStartGame() {
+            initAudio();
+            // 第一步：清洗前后多余空格，防止内容超边缘
+            const qLines = document.getElementById('db-questions').value.split(/\r?\n/).map(l=>l.trim()).filter(l=>l!=='');
+            const aLines = document.getElementById('db-answers').value.split(/\r?\n/).map(l=>l.trim()).filter(l=>l!=='');
+            if(qLines.length === 0 || qLines.length !== aLines.length) return alert("请确保上句和释义行数一致且不为空！");
+            
+            let batches = [];
+            let i = 0;
+            
+            // 第一批次：前 20 对（40 个块）
+            let batch1 = [];
+            let limit1 = Math.min(20, qLines.length);
+            for (; i < limit1; i++) {
+                batch1.push({ type: 'q', text: qLines[i], rawText: qLines[i], answerText: aLines[i] });
+                batch1.push({ type: 'a', text: aLines[i], rawText: aLines[i], answerText: aLines[i] });
+            }
+            batches.push(shuffleArray(batch1));
+            
+            // 后续批次：每 10 对（20 个块）为一组，随机掉落
+            while (i < qLines.length) {
+                let currentBatch = [];
+                let limit2 = Math.min(i + 10, qLines.length);
+                for (; i < limit2; i++) {
+                    currentBatch.push({ type: 'q', text: qLines[i], rawText: qLines[i], answerText: aLines[i] });
+                    currentBatch.push({ type: 'a', text: aLines[i], rawText: aLines[i], answerText: aLines[i] });
+                }
+                batches.push(shuffleArray(currentBatch));
+            }
+            
+            // 倒序合并，保证 pop() 按照批次先后顺序顺次弹出
+            gameState.pendingDrops = [];
+            for (let j = batches.length - 1; j >= 0; j--) {
+                gameState.pendingDrops = gameState.pendingDrops.concat(batches[j]);
+            }
+            
+            document.getElementById('player-name-input').value = ""; 
+            document.getElementById('name-modal-overlay').style.display = 'flex';
+            setTimeout(() => document.getElementById('player-name-input').focus(), 100);
+        }
+
+        document.getElementById('btn-cancel-name').addEventListener('click', () => document.getElementById('name-modal-overlay').style.display='none');
+        document.getElementById('btn-confirm-name').addEventListener('click', launchGame);
+
+        function launchGame() {
+            initAudio();
+            gameState.playerName = document.getElementById('player-name-input').value.trim() || "无名猎人";
+            document.getElementById('name-modal-overlay').style.display = 'none';
+            
+            gameState.isPlaying = true; 
+            gameState.score = 0; 
+            gameState.selectedBlock = null;
+            gameState.organizeCount = 3;
+            gameState.hasAlertedOrganize = false;
+            gameState.isInitialDropping = true; 
+            gameState.isBatchDropping = false;
+            
+            document.getElementById('player-name').innerText = gameState.playerName;
+            document.getElementById('player-score').innerText = "0";
+            document.getElementById('btn-stop-game').style.display = 'block';
+
+            const btnOrg = document.getElementById('btn-organize');
+            btnOrg.innerText = `🧹 整理 (3)`;
+            btnOrg.style.background = 'linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%)';
+            btnOrg.style.color = '#333';
+            btnOrg.style.boxShadow = '0 4px 15px rgba(255, 154, 158, 0.4)';
+            btnOrg.style.cursor = 'pointer';
+            btnOrg.classList.remove('shake-alert');
+            
+            initPhysics();
+
+            const initialDropCount = Math.min(40, gameState.pendingDrops.length);
+            let dropIndex = 0;
+            
+            if (gameState.periodicDropTimer) clearInterval(gameState.periodicDropTimer);
+            
+            const dropInterval = setInterval(() => {
+                if(!gameState.isPlaying) { clearInterval(dropInterval); return; }
+                if(dropIndex >= initialDropCount) { 
+                    clearInterval(dropInterval); 
+                    gameState.isInitialDropping = false; 
+                    
+                    setTimeout(checkWinCondition, 500); 
+                    
+                    if (gameState.pendingDrops.length > 0) {
+                        gameState.periodicDropTimer = setInterval(() => {
+                            if (!gameState.isPlaying) { clearInterval(gameState.periodicDropTimer); return; }
+                            if (gameState.pendingDrops.length > 0 && !gameState.isBatchDropping) {
+                                dropNextPending();
+                                setTimeout(checkWinCondition, 500); 
+                            }
+                        }, 5000);
+                    }
+                    return; 
+                }
+                dropNextPending();
+                dropIndex++;
+            }, 150);
+        }
+
+        // ==========================================
+        // 7. 存储与排行榜
+        // ==========================================
+        function getSafeStorage(key, defaultObj) { try { return JSON.parse(localStorage.getItem(key)) || defaultObj; } catch(e){return defaultObj;} }
+        function setSafeStorage(key, obj) { try { localStorage.setItem(key, JSON.stringify(obj)); } catch(e){} }
+
+        document.getElementById('btn-save').addEventListener('click', () => {
+            const name = document.getElementById('db-name').value.trim() || '未命名词库_' + new Date().getTime();
+            const q = document.getElementById('db-questions').value.trim();
+            const a = document.getElementById('db-answers').value.trim();
+            if(!q || !a) return alert("词库不能为空哦！");
+            let history = getSafeStorage('watermelon_db', {});
+            history[name] = { q, a }; setSafeStorage('watermelon_db', history);
+            loadHistoryList(); alert("词库保存成功！");
+        });
+
+        function loadHistoryList() {
+            const history = getSafeStorage('watermelon_db', {});
+            
+            for(let presetName in PRESET_DB) {
+                if(!history[presetName]) {
+                    history[presetName] = PRESET_DB[presetName];
+                }
+            }
+            
+            const list = document.getElementById('history-list'); list.innerHTML = '';
+            for(let name in history) {
+                const div = document.createElement('div'); div.className = 'history-item';
+                div.innerHTML = `<span style="flex:1;">📂 ${name}</span> <span class="del-btn" style="color:red;">✖</span>`;
+                div.addEventListener('click', (e) => {
+                    if(e.target.classList.contains('del-btn')) {
+                        if(confirm("销毁这个词库吗？")) { delete history[name]; setSafeStorage('watermelon_db', history); loadHistoryList(); }
+                    } else {
+                        document.getElementById('db-name').value = name;
+                        document.getElementById('db-questions').value = history[name].q;
+                        document.getElementById('db-answers').value = history[name].a;
+                    }
+                });
+                list.appendChild(div);
+            }
+        }
+
+        function saveScore(name, score) {
+            let board = getSafeStorage('watermelon_leaderboard', []);
+            board.push({ name, score, date: new Date().toLocaleDateString() });
+            board.sort((a,b) => b.score - a.score); board = board.slice(0, 10);
+            setSafeStorage('watermelon_leaderboard', board); renderLeaderboard();
+        }
+
+        function renderLeaderboard() {
+            let board = getSafeStorage('watermelon_leaderboard', []);
+            const list = document.getElementById('leaderboard-list'); list.innerHTML = '';
+            if(board.length === 0) { list.innerHTML = '<div style="text-align:center;color:#999;padding:10px;">暂无记录</div>'; return; }
+            board.forEach((item, index) => {
+                const div = document.createElement('div'); div.className = `rank-item ${index<3?'rank-'+(index+1):''}`;
+                const medal = index === 0 ? '🏆' : (index === 1 ? '🥈' : (index === 2 ? '🥉' : index+1));
+                div.innerHTML = `<span>${medal} ${item.name}</span><span style="color:#ff5e62;">${item.score} 分</span>`;
+                list.appendChild(div);
+            });
+        }
+        window.clearLeaderboard = function() { if(confirm("确定要清空金榜吗？")) { setSafeStorage('watermelon_leaderboard', []); renderLeaderboard(); } }
+
+        // 初始化
+        renderLeaderboard(); loadHistoryList();
+    </script>
+</body>
+</html>

@@ -1,0 +1,1036 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>小石潭记 - 古风连连看</title>
+    <style>
+        /* ================= 基础重置、古风字体与毛笔光标 ================= */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'STKaiti', 'KaiTi', '楷体', 'Songti SC', 'SimSun', serif;
+            user-select: none;
+            /* 全局毛笔光标 */
+            cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><text y="24" font-size="24">🖌️</text></svg>') 0 24, auto !important;
+        }
+
+        body {
+            overflow: hidden;
+            background-color: #1b5e20; 
+            color: #333;
+        }
+
+        /* ================= 3D立体竹林背景层 ================= */
+        .bamboo-bg {
+            position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
+            background-color: #2e7d32; 
+            background-image: 
+                linear-gradient(115deg, rgba(255,255,255,0.2) 0%, rgba(200,255,200,0.1) 30%, transparent 60%),
+                repeating-linear-gradient(to right, transparent, transparent 15%, #4caf50 15%, #66bb6a 16%, #81c784 18%, #aed581 20%, #4caf50 23%, #388e3c 24%, transparent 24%, transparent 40%),
+                repeating-linear-gradient(to right, transparent, transparent 5%, #388e3c 5%, #4caf50 6%, #66bb6a 8%, #4caf50 10%, #2e7d32 11%, transparent 11%, transparent 28%),
+                repeating-linear-gradient(to bottom, transparent, transparent 150px, rgba(0,0,0,0.3) 150px, rgba(255,255,255,0.2) 152px, transparent 154px);
+            z-index: 0; pointer-events: none;
+        }
+
+        .leaf {
+            position: absolute; width: 40px; height: 16px; 
+            background: linear-gradient(135deg, #aed581, #4caf50); 
+            border-radius: 50% 0 50% 0; transform: rotate(-45deg);
+            box-shadow: 2px 4px 8px rgba(0,0,0,0.2); opacity: 0.9;
+        }
+
+        /* ================= 页面1：三层竹篱笆封面场景 ================= */
+        #prep-scene {
+            display: flex; width: 100vw; height: 100vh; 
+            position: absolute; top: 0; left: 0; z-index: 100; /* 改为 absolute 以覆盖 Game Scene */
+            align-items: stretch; padding: 2.5vw; gap: 2.5vw;
+        }
+
+        .fence-base {
+            position: relative;
+            background-color: #4caf50;
+            background-image: 
+                linear-gradient(90deg, rgba(0,0,0,0.2) 0%, transparent 10%, transparent 90%, rgba(0,0,0,0.2) 100%),
+                repeating-linear-gradient(90deg, #4caf50 0px, #81c784 10px, #aed581 25px, #4caf50 35px);
+            background-size: 100% 100%, 35px 100%;
+            border-radius: 12px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+            display: flex; flex-direction: column;
+            z-index: 2; pointer-events: auto;
+            border: 3px solid #2e7d32;
+            overflow: hidden; 
+        }
+        
+        .fence-base::before, .fence-base::after {
+            content: ''; position: absolute; left: 0; width: 100%; height: 12px;
+            background: repeating-linear-gradient(45deg, #6d4c41, #6d4c41 4px, #4e342e 4px, #4e342e 8px);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.4), inset 0 2px 3px rgba(255,255,255,0.2);
+            z-index: 0;
+        }
+        .fence-base::before { top: 12%; }
+        .fence-base::after { bottom: 12%; }
+        
+        /* === 开场退出的动画控制 === */
+        .left-raft, .right-raft {
+            flex: 1; 
+            transition: transform 0.8s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.8s ease;
+        }
+        .middle-raft {
+            flex: 1.2; transform: scale(1.02); z-index: 3;
+            transition: transform 0.8s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.8s ease;
+        }
+        .slide-out-left { transform: translateX(-150vw) !important; opacity: 0; }
+        .slide-out-right { transform: translateX(150vw) !important; opacity: 0; }
+        .slide-out-up { transform: translateY(-150vh) scale(1.02) !important; opacity: 0; }
+
+        /* 内部厚木板 */
+        .wood-panel {
+            position: relative; z-index: 2; flex: 1;
+            background: #fff8e1;
+            background-image: repeating-linear-gradient(to bottom, rgba(0,0,0,0.02) 0px, rgba(0,0,0,0.02) 2px, transparent 2px, transparent 15px);
+            border-radius: 12px;
+            border: 4px solid #795548;
+            box-shadow: 0 10px 0 #5d4037, inset 0 2px 5px #fff; 
+            padding: 20px; display: flex; flex-direction: column;
+            color: #3e2723; margin-bottom: 10px; 
+            overflow-y: auto; 
+            overflow-x: hidden;
+        }
+
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.05); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb { background: #bcaaa4; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #8d6e63; }
+        
+        .center-content { 
+            align-items: center; 
+            justify-content: flex-start; 
+            overflow-y: auto; 
+            padding: clamp(20px, 3vh, 40px) !important; 
+        }
+
+        /* 响应式路牌设计 */
+        .signpost-container {
+            display: flex; flex-direction: column; align-items: center; 
+            margin-bottom: clamp(10px, 2vh, 25px); 
+            filter: drop-shadow(0 15px 15px rgba(0,0,0,0.4));
+        }
+        .signpost-pole {
+            width: 18px; height: 35px; background: #6d4c41; 
+            border: 3px solid #4e342e; border-bottom: none; border-radius: 4px 4px 0 0;
+            box-shadow: inset -4px 0 0 rgba(0,0,0,0.4);
+        }
+        .signpost-board {
+            background: #d4b572; border: 5px solid #a67c33; border-radius: 10px; 
+            padding: 15px 45px; position: relative; 
+            box-shadow: 0 8px 0 #7a581e, inset 0 3px 5px rgba(255,255,255,0.4);
+        }
+        .signpost-nail { position:absolute; width:10px; height:10px; background:#3d2b1f; border-radius:50%; box-shadow:inset -1px -1px 0 rgba(0,0,0,0.6), 0 1px 1px rgba(255,255,255,0.3); }
+        .signpost-board .tl { top: 12px; left: 15px; } .signpost-board .tr { top: 12px; right: 15px; }
+        .signpost-board .bl { bottom: 12px; left: 15px; } .signpost-board .br { bottom: 12px; right: 15px; }
+        .signpost-board h2 { 
+            color: #5c1818; margin: 0; font-weight: 900;
+            font-size: clamp(36px, 6vh, 60px); 
+            letter-spacing: clamp(5px, 1vw, 12px); 
+            text-shadow: 2px 2px 0 #f0d8a8, 0 4px 4px rgba(0,0,0,0.2); 
+        }
+
+        /* 原文规则框自适应 */
+        .rule-box {
+            background: rgba(0,0,0,0.4); 
+            padding: clamp(15px, 2vh, 25px) clamp(20px, 3vw, 30px); 
+            border-radius: 16px; 
+            margin-bottom: clamp(20px, 3vh, 45px); 
+            border: 2px solid rgba(255,255,255,0.2);
+            width: 100%;
+        }
+        .rule-p1 {
+            margin-bottom: 0; text-align:center; 
+            font-size: clamp(16px, 2.5vh, 26px); 
+            color: #e8f5e9; line-height: 1.8; font-weight: bold;
+        }
+
+        .panel-title { text-align: center; font-size: 30px; font-weight: bold; color: #3d2b1f; margin-bottom: 15px; border-bottom: 2px dashed #a89f91; padding-bottom: 10px; }
+        
+        .input-group { margin-bottom: 15px; width: 100%;}
+        .input-group label { display: block; margin-bottom: 8px; font-weight: bold; color: #4a3629; font-size: 16px;}
+        
+        .input-group input, .input-group textarea, .input-group select {
+            width: 100%; padding: 10px; 
+            background: #faf8f5; color: #2b221a; 
+            border: 2px solid #a89f91; border-radius: 6px; 
+            font-size: 16px; outline: none; transition: all 0.3s; resize: vertical; font-weight: bold;
+        }
+        .input-group input:focus, .input-group textarea:focus, .input-group select:focus { border-color: #5c9965; box-shadow: 0 0 0 3px rgba(92, 153, 101, 0.2); }
+        .input-group textarea { height: 70px; line-height: 1.5; }
+        
+        .btn-group { display: flex; gap: 12px; margin-bottom: 10px; width: 100%;}
+        .btn-group button { flex: 1; font-size: 16px; padding: 10px 5px;}
+
+        .db-list-container {
+            flex: 1; overflow-y: auto; background: #faf8f5; border: 2px solid #a89f91; border-radius: 6px; margin-top: 10px; padding: 10px;
+            display: flex; flex-direction: column; gap: 8px; box-shadow: inset 0 3px 6px rgba(0,0,0,0.05);
+        }
+        .db-item {
+            padding: 12px 15px; background: #f0ebe1; border-radius: 4px; border-left: 4px solid #a89f91;
+            cursor: pointer; font-weight: bold; color: #4a3629; transition: all 0.2s; display: flex; justify-content: space-between;
+        }
+        .db-item:hover { transform: translateX(4px); background: #e6dfd3; border-left-color: #7a6352;}
+        .db-item.active { background: #d3e0d5; border-left-color: #356b3b; color: #1e4523; }
+        
+        .name-input { 
+            width: 80%; background: transparent; color: #2b221a;
+            border: none; border-bottom: 3px solid #7a6352; text-align: center; outline: none; font-weight: bold; 
+            padding: clamp(10px, 1.5vh, 15px); 
+            font-size: clamp(22px, 3.5vh, 32px); 
+            margin-bottom: clamp(15px, 2.5vh, 30px); 
+        }
+        
+        .time-label {
+            text-align:center; font-weight:bold; color:#c8e6c9; 
+            font-size: clamp(16px, 2vh, 22px); width: 90%;
+        }
+
+        .time-options { display: flex; justify-content: space-around; width: 90%; margin: clamp(10px, 1.5vh, 15px) 0 clamp(20px, 3vh, 40px) 0; gap: 15px;}
+        .time-opt { 
+            flex: 1; text-align: center; border-radius: 8px; cursor: pointer; 
+            color: #4a3629; font-weight: bold; transition: all 0.2s; 
+            background: #faf8f5; border: 2px solid #a89f91; box-shadow: 0 4px 0 #a89f91;
+            padding: clamp(8px, 1.5vh, 12px); 
+            font-size: clamp(14px, 2vh, 18px); 
+        }
+        .time-opt:active { transform: translateY(4px); box-shadow: 0 0 0 #a89f91;}
+        .time-opt.active { background: #4a8252; color: #fff; border-color: #234d28; box-shadow: 0 4px 0 #234d28;}
+
+        .start-btn {
+            width: 90%; border-radius: 20px; letter-spacing: 8px;
+            font-size: clamp(24px, 4vh, 40px) !important; 
+            padding: clamp(12px, 2vh, 20px) !important;
+        }
+
+        .leaderboard-list { flex: 1; overflow-y: auto; border-radius: 6px; padding: 10px; margin-top: 10px; background: #faf8f5; border: 2px solid #a89f91;}
+        .rank-item { display: flex; justify-content: space-between; padding: 15px; margin-bottom: 10px; background: #fdf5e6; border-radius: 6px; border-left: 4px solid #d4b572; font-size: 18px; font-weight: bold; color: #a67c33;}
+
+        /* 古风墨绿按钮 */
+        .bamboo-btn {
+            background: linear-gradient(135deg, #5c9965, #356b3b);
+            color: #fff; border: 2px solid #153018; border-radius: 8px; font-weight: bold; font-size: 20px; padding: 12px 20px;
+            box-shadow: 0 5px 0 #153018; transition: all 0.1s; cursor: pointer; text-shadow: 1px 1px 0 #153018; 
+        }
+        .bamboo-btn:active { transform: translateY(5px); box-shadow: 0 0 0 #153018; }
+        
+        .btn-danger { background: linear-gradient(135deg, #c62828, #8e0000); border-color: #4a0000; box-shadow: 0 5px 0 #4a0000; }
+        .btn-danger:active { box-shadow: 0 0 0 #4a0000; }
+
+        /* ================= 页面2：游戏核心场景 ================= */
+        #game-scene { 
+            display: none; position: absolute; inset: 0; z-index: 50; 
+            background-color: #cfd8dc; 
+            background-image: 
+                radial-gradient(#b0bec5 4px, transparent 4px), 
+                radial-gradient(#b0bec5 4px, transparent 4px);
+            background-size: 100px 100px; 
+            background-position: 0 0, 50px 50px;
+            overflow: hidden;
+        }
+
+        /* 外围点缀装饰 */
+        .land-decor { position: absolute; z-index: 5; filter: drop-shadow(2px 5px 5px rgba(0,0,0,0.3)); pointer-events: none; }
+
+        #game-container {
+            position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 10; 
+        }
+
+        /* 小石潭底：无边框全屏 */
+        #tarn-base {
+            position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; 
+            background: radial-gradient(circle at 45% 45%, #eceff1 0%, #cfd8dc 50%, #90a4ae 100%);
+            border-radius: 0;
+            border: none;
+            box-shadow: none; 
+            overflow: hidden;
+        }
+
+        #tarn-base::before {
+            content: ''; position: absolute; inset: 0;
+            background-image: radial-gradient(circle at 20% 30%, rgba(255,255,255,0.5) 1%, transparent 2%), radial-gradient(circle at 75% 65%, rgba(255,255,255,0.4) 1.5%, transparent 2.5%);
+            background-size: 120px 120px; pointer-events: none;
+        }
+
+        /* 日光下澈 */
+        .sunlight-beam {
+            position: absolute; top: -20%; left: -20%; width: 140%; height: 140%;
+            background: linear-gradient(135deg, transparent 30%, rgba(255,255,255,0.3) 40%, rgba(255,255,255,0.6) 50%, rgba(255,255,255,0.2) 60%, transparent 70%);
+            pointer-events: none; z-index: 8; mix-blend-mode: overlay; animation: sunBeamMove 8s infinite alternate ease-in-out;
+        }
+        @keyframes sunBeamMove { 0% { transform: translateY(-2%) translateX(-2%); } 100% { transform: translateY(2%) translateX(2%); } }
+
+        /* 岩石物理边界 */
+        .rock {
+            position: absolute; z-index: 2;
+            background: radial-gradient(ellipse at 30% 30%, #cfd8dc 0%, #90a4ae 50%, #607d8b 100%);
+            box-shadow: inset 10px 10px 20px rgba(255,255,255,0.5), inset -15px -15px 30px rgba(0,0,0,0.3), 15px 25px 40px rgba(0,0,0,0.4);
+            background-image: repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(0,0,0,0.03) 10px, rgba(0,0,0,0.03) 20px);
+        }
+        .rock-tl { top: -5%; left: -5%; width: 22%; height: 25%; border-radius: 40% 60% 70% 30% / 30% 50% 60% 70%; }
+        .rock-tr { top: -5%; left: 65%; width: 30%; height: 25%; border-radius: 30% 70% 40% 60% / 50% 30% 70% 50%; }
+        .rock-bl { top: 80%; left: -5%; width: 28%; height: 25%; border-radius: 60% 40% 30% 70% / 70% 60% 40% 30%; }
+        .rock-island { top: 75%; left: 62%; width: 22%; height: 20%; border-radius: 45% 55% 35% 65% / 50% 45% 65% 35%; }
+        .rock-decor { position: absolute; font-size: 45px; z-index: 3; filter: drop-shadow(2px 5px 6px rgba(0,0,0,0.3)); pointer-events: none; }
+
+        /* 游戏网格区：扩展空间并更加分散 */
+        #game-board { 
+            position: absolute; 
+            top: 10%; left: 8%; 
+            width: 68%; height: 80%; 
+            z-index: 20; 
+        }
+
+        /* 右侧木板状态栏 */
+        .game-sidebar-panel {
+            position: absolute; right: 1.5vw; top: 50%; transform: translateY(-50%); 
+            height: auto; width: 22vw; max-width: 320px;
+            z-index: 100; pointer-events: auto; padding: 0;
+            background: none; border: none; box-shadow: none; border-radius: 0;
+        }
+
+        .current-status { background: rgba(255,255,255,0.85); padding: 20px; border-radius: 12px; text-align: center; border: 2px dashed #a89f91; margin-bottom: 25px;}
+        .current-score { font-size: 60px; font-weight: bold; color: #d32f2f; margin: 15px 0; text-shadow: 2px 2px 0 #ffcdd2;}
+        .time-alert { color: #d32f2f !important; animation: pulse 0.5s infinite; }
+        @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
+
+        /* ================= 核心：智能缩放 3D 小鱼 (缩小20%版本) ================= */
+        .fish-card {
+            position: absolute; display: flex; align-items: center; justify-content: center;
+            transform: translate(-50%, -50%); transition: left 0.6s cubic-bezier(0.34, 1.56, 0.64, 1), top 0.6s cubic-bezier(0.34, 1.56, 0.64, 1), transform 0.3s;
+            z-index: 25; cursor: pointer;
+        }
+        .fish-wiggle { position: relative; display: flex; align-items: center; justify-content: center; width: 95%; height: 60%; animation: fishSwim 2.5s infinite alternate ease-in-out; filter: drop-shadow(5px 15px 10px rgba(0,0,0,0.3));}
+        @keyframes fishSwim { 0% { transform: translateY(-4px) rotate(-2deg); } 100% { transform: translateY(4px) rotate(2deg); } }
+
+        .fish-body { position: absolute; width: 85%; height: 100%; display: flex; align-items: center; justify-content: center; z-index: 3; transition: filter 0.3s; }
+
+        .fish-eye { position: absolute; width: 14px; height: 14px; border-radius: 50%; z-index: 5; top: 25%; display: flex; align-items: center; justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.5); overflow: hidden; }
+        .fish-eye::after { content: ''; position: absolute; width: 6px; height: 6px; border-radius: 50%; animation: eyeLook 3s infinite alternate ease-in-out; }
+        @keyframes eyeLook { 0%, 20% { transform: translateX(-1px); } 40%, 60% { transform: translateX(2px); } 80%, 100% { transform: translateX(0); } }
+
+        .fish-tail-fin { position: absolute; top: 50%; width: 30%; height: 120%; transform: translateY(-50%); z-index: 1; animation: tailSwing 0.6s infinite alternate ease-in-out; }
+        @keyframes tailSwing { 0% { transform: translateY(-50%) rotate(-15deg); } 100% { transform: translateY(-50%) rotate(15deg); } }
+
+        .text-content { 
+            position: relative; z-index: 10;
+            line-height: 1.2; font-weight: bold; text-align: center; width: 75%; 
+            word-wrap: break-word;
+            font-size: clamp(14px, 1.6vw, 20px); 
+        }
+        .highlight-word { color: #ff5252; font-size: 1.25em; font-weight: 900; text-shadow: 0 0 3px #fff, 0 1px 2px rgba(0,0,0,0.8);}
+
+        .fish-black .fish-body { left: 10%; border-radius: 50% 25% 25% 50% / 50% 50% 50% 50%; background: radial-gradient(circle at 30% 50%, #2c3e50 0%, #102027 80%); box-shadow: inset 0 4px 10px rgba(255,255,255,0.3), inset -3px -3px 10px rgba(0,0,0,0.8); }
+        .fish-black .fish-tail-fin { right: -15%; clip-path: polygon(0 50%, 100% 0, 75% 50%, 100% 100%); transform-origin: left center; background: #1c2833; }
+        .fish-black .fish-eye { left: 12%; background: #fff; border: 2px solid #000; }
+        .fish-black .fish-eye::after { background: #000; margin-left: 2px; }
+        .fish-black .text-content { color: #eceff1; text-shadow: 0 1px 2px #000; padding-left: 20px;}
+
+        .fish-white .fish-body { right: 10%; border-radius: 25% 50% 50% 25% / 50% 50% 50% 50%; background: radial-gradient(circle at 70% 50%, #ffffff 0%, #b0bec5 80%); box-shadow: inset 0 4px 10px rgba(255,255,255,0.9), inset -3px -3px 10px rgba(0,0,0,0.2); }
+        .fish-white .fish-tail-fin { left: -15%; clip-path: polygon(100% 50%, 0 0, 25% 50%, 0 100%); transform-origin: right center; background: #eceff1; }
+        .fish-white .fish-eye { right: 12%; background: #000; border: 2px solid #fff; }
+        .fish-white .fish-eye::after { background: #fff; margin-right: 2px; }
+        .fish-white .text-content { color: #3e2723; text-shadow: 0 1px 1px #fff; padding-right: 20px;}
+
+        .fish-card:hover .fish-body { filter: brightness(1.2); }
+        .fish-card.selected .fish-wiggle { transform: scale(1.15) !important; z-index: 1000 !important; }
+        .fish-card.selected .fish-body { box-shadow: 0 0 0 6px rgba(255, 213, 79, 0.9), inset 0 6px 12px rgba(255,255,255,0.8); }
+        .fish-card.matched { opacity: 0 !important; pointer-events: none; transform: translate(-50%, -50%) scale(0.5) !important; transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) !important;}
+
+        .water-ripple { position: absolute; transform: translate(-50%, -50%); border-radius: 50%; z-index: 900; pointer-events: none; border: 3px solid rgba(255,255,255,0.8); animation: rippleAnim 2.5s cubic-bezier(0.1, 0.8, 0.3, 1) forwards; }
+        @keyframes rippleAnim { 0% { width: 10px; height: 10px; opacity: 1; border-width: 6px; } 100% { width: 250px; height: 250px; opacity: 0; border-width: 1px; } }
+
+        /* ================= 模态弹窗 ================= */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(0,0,0,0.8); backdrop-filter: blur(8px); display: none; 
+            align-items: center; justify-content: center; z-index: 3000;
+        }
+
+    </style>
+</head>
+<body>
+
+    <!-- 核心背景：3D密林排竹 -->
+    <div class="bamboo-bg" id="bg-leaves"></div>
+
+    <!-- ================= 场景一：三层竹排+木板界面 ================= -->
+    <div id="prep-scene">
+        
+        <!-- 左侧竹排 -->
+        <div class="fence-base left-raft prep-col-side">
+            <div class="wood-panel">
+                <div class="panel-title">篇目卷宗</div>
+                <div class="input-group" style="display:none;"><select id="db-select"></select></div>
+                <div class="input-group"><label>卷宗名称</label><input type="text" id="db-name" placeholder="请输入文集名称"></div>
+                <div class="input-group"><label>青乌鱼 (用**包裹需释义的词)</label><textarea id="db-questions" placeholder="例如：从小丘**西**行百二十步"></textarea></div>
+                <div class="input-group"><label>白玉鱼 (对应高亮词的释义)</label><textarea id="db-answers" placeholder="例如：向西"></textarea></div>
+                <div class="btn-group">
+                    <button id="btn-save" class="bamboo-btn">💾 保存</button>
+                    <button id="btn-new" class="bamboo-btn" style="background: linear-gradient(135deg, #4fc3f7, #0288d1); box-shadow: 0 5px 0 #01579b;">📝 新增</button>
+                    <button id="btn-delete" class="bamboo-btn btn-danger">🗑️ 删除</button>
+                </div>
+                <label style="font-weight: bold; color: #4a3629; font-size: 16px; margin-top: 10px; display:block;">本地卷宗库</label>
+                <div class="db-list-container" id="db-list"></div>
+            </div>
+        </div>
+
+        <!-- 中间竹排 -->
+        <div class="fence-base middle-raft prep-col-center">
+            <div class="wood-panel center-content">
+                
+                <div class="signpost-container">
+                    <div class="signpost-pole"></div>
+                    <div class="signpost-board">
+                        <div class="signpost-nail tl"></div> <div class="signpost-nail tr"></div>
+                        <div class="signpost-nail bl"></div> <div class="signpost-nail br"></div>
+                        <h2>小石潭记</h2>
+                    </div>
+                </div>
+                
+                <div class="rule-box">
+                    <p class="rule-p1">
+                        伐竹取道，下见小潭。<br>
+                        潭中鱼可百许头，<br>
+                        匹配错，则<span style="color:#ff5252; font-weight:900; text-shadow:0 0 3px #fff;">往来翕忽</span>。<br>
+                        匹配对，则<span style="color:#66bb6a; font-weight:900; text-shadow:0 0 3px #000;">俶尔远逝</span>。<br>
+                        同游者，记名于【文采榜】上。
+                    </p>
+                </div>
+
+                <input type="text" id="player-name-input" class="name-input" placeholder="阁下尊姓大名" maxlength="6">
+                <div class="time-label">选择游历时辰</div>
+                <div class="time-options" id="time-options">
+                    <div class="time-opt" data-time="1">1 分钟</div>
+                    <div class="time-opt" data-time="3">3 分钟</div>
+                    <div class="time-opt" data-time="5">5 分钟</div>
+                    <div class="time-opt active" data-time="-1">不限时</div>
+                </div>
+                <button id="start-game-btn" class="bamboo-btn start-btn">入林寻潭</button>
+            </div>
+        </div>
+
+        <!-- 右侧竹排 -->
+        <div class="fence-base right-raft prep-col-side">
+            <div class="wood-panel">
+                <div class="panel-title">文采榜</div>
+                <div class="leaderboard-list" id="leaderboard-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= 场景二：游戏进行中 ================= -->
+    <div id="game-scene">
+        
+        <!-- 外围丰富石块与植物生态装饰 (Emoji) -->
+        <div class="land-decor" style="top: 2%; left: 3%; font-size:110px;">🪨</div>
+        <div class="land-decor" style="top: 5%; right: 5%; font-size:80px;">🪷</div>
+        <div class="land-decor" style="bottom: 2%; left: 10%; font-size:100px;">🌿</div>
+        <div class="land-decor" style="bottom: 2%; right: 25%; font-size:120px;">🪨</div>
+        <div class="land-decor" style="top: 40%; left: 1%; font-size:75px;">🌱</div>
+        <div class="land-decor" style="bottom: 40%; right: 1%; font-size:65px;">🪷</div>
+        <div class="land-decor" style="top: 85%; left: 5%; font-size:60px;">🪨</div>
+        <div class="land-decor" style="top: 15%; left: 25%; font-size:45px;">🐠</div>
+        <div class="land-decor" style="top: 85%; right: 18%; font-size:40px;">🐟</div>
+        <div class="land-decor" style="bottom: 12%; right: 5%; font-size:55px;">🌿</div>
+
+        <div id="game-container">
+            <div id="tarn-base">
+                <div class="sunlight-beam"></div>
+                
+                <!-- 巨大岩石 (被隔离在小鱼活动网格外部) -->
+                <div class="rock rock-tl">
+                    <div class="rock-decor" style="bottom: 10%; right: 10%;">🌿</div>
+                    <div class="rock-decor" style="bottom: 20%; right: -5%;">🌸</div>
+                </div>
+                <div class="rock rock-tr">
+                    <div class="rock-decor" style="bottom: 15%; left: 15%;">🎋</div>
+                    <div class="rock-decor" style="top: 40%; left: -5%;">🍃</div>
+                </div>
+                <div class="rock rock-bl">
+                    <div class="rock-decor" style="top: 15%; right: 5%;">🍄</div>
+                    <div class="rock-decor" style="top: 40%; right: -10%;">🌿</div>
+                </div>
+                <div class="rock rock-island">
+                    <div class="rock-decor" style="top: -20%; left: 30%;">🪷</div>
+                </div>
+                
+                <!-- 严格受限的安全游戏网格区 -->
+                <div id="game-board"></div>
+            </div>
+        </div>
+
+        <div class="fence-base game-sidebar-panel" style="position: absolute; right: 1.5vw; top: 50%; transform: translateY(-50%); height: auto; width: 22vw; max-width: 320px; z-index: 100;">
+            <div class="wood-panel" style="margin-bottom:0;">
+                <div class="panel-title" style="border-bottom:none; margin-bottom:15px; font-size: 32px;">游历中</div>
+                <div class="current-status">
+                    <h3 style="font-size:22px; color:#3e2723; margin-bottom:15px;">墨客：<span id="player-name">未题名</span></h3>
+                    <div class="current-score" id="player-score">0</div>
+                    <div style="font-size: 18px; color: #5d4037; font-weight:bold;" id="matches-display">寻章摘句: 0 韵</div>
+                    <div style="font-size: 28px; color: #b71c1c; font-weight:bold; margin-top:25px;" id="time-display">剩余时辰: ∞</div>
+                </div>
+                <button id="btn-exit-game" class="bamboo-btn btn-danger" style="width: 100%; margin-top: auto;">🏃 退出游历</button>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ================= 退出确认弹窗 ================= -->
+    <div id="confirm-modal" class="modal-overlay">
+        <div class="fence-base" style="width: 400px; padding: 20px; border-radius: 20px;">
+            <div class="wood-panel" style="padding: 40px; text-align: center; margin-bottom: 0;">
+                <h2 style="color: #c62828; margin-bottom: 20px; font-size: 32px; text-shadow: 1px 1px 0 #fff;">隐退确认</h2>
+                <p style="color: #4e342e; font-size: 18px; margin-bottom: 30px; font-weight: bold; line-height: 1.5;">中途退出游历，将不会记录本次积分。<br>确定要退出吗？</p>
+                <div class="btn-group">
+                    <button id="btn-confirm-yes" class="bamboo-btn btn-danger">残忍退出</button>
+                    <button id="btn-confirm-no" class="bamboo-btn">继续游历</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= 结算模态框 ================= -->
+    <div id="results-modal" class="modal-overlay">
+        <div class="fence-base" style="width: 500px; padding: 20px; border-radius: 20px;">
+            <div class="wood-panel" style="padding: 50px; text-align: center; margin-bottom: 0;">
+                <h2 id="result-title" style="color: #3e2723; margin-bottom: 25px; font-size: 42px; text-shadow: 1px 1px 0 #fff;">游历归来</h2>
+                <p style="text-align: center; font-size: 24px; color: #4e342e; font-weight: bold;">最终文采值</p>
+                <p id="result-score" style="text-align: center; color: #d32f2f; font-size: 80px; font-weight: bold; margin-bottom: 40px; text-shadow: 2px 4px 0 #ffcdd2;">0</p>
+                <button onclick="closeResults()" class="bamboo-btn" style="width: 100%; font-size: 26px; border-radius:12px;">返回</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const els = {
+            prepScene: document.getElementById('prep-scene'),
+            gameScene: document.getElementById('game-scene'),
+            gameBoard: document.getElementById('game-board'),
+            startBtn: document.getElementById('start-game-btn'),
+            resultsModal: document.getElementById('results-modal'),
+            confirmModal: document.getElementById('confirm-modal'),
+            
+            dbSelect: document.getElementById('db-select'),
+            dbList: document.getElementById('db-list'),
+            dbName: document.getElementById('db-name'),
+            dbQuestions: document.getElementById('db-questions'),
+            dbAnswers: document.getElementById('db-answers'),
+            btnSave: document.getElementById('btn-save'),
+            btnNew: document.getElementById('btn-new'),
+            btnDelete: document.getElementById('btn-delete'),
+            
+            playerNameDisplay: document.getElementById('player-name'),
+            playerScoreDisplay: document.getElementById('player-score'),
+            matchesDisplay: document.getElementById('matches-display'),
+            timeDisplay: document.getElementById('time-display'),
+            btnExitGame: document.getElementById('btn-exit-game'),
+            btnConfirmYes: document.getElementById('btn-confirm-yes'),
+            btnConfirmNo: document.getElementById('btn-confirm-no'),
+            
+            leaderboardList: document.getElementById('leaderboard-list'),
+            resultTitle: document.getElementById('result-title'),
+            resultScoreDisplay: document.getElementById('result-score'),
+            nameInput: document.getElementById('player-name-input'),
+            timeOptions: document.querySelectorAll('.time-opt')
+        };
+
+        // 预置的 5 个题库
+        const defaultDBs = {
+            "小石潭记全词": {
+                q: "从小丘**西**行百二十步\n隔**篁竹**\n**闻**水声\n如鸣**佩环**\n心**乐**之\n**伐**竹取道\n下见小潭，水尤**清冽**\n全石以**为**底\n**卷**石底以出\n潭中鱼可百**许**头\n皆若**空**游无所依\n日光下**澈**\n影**布**石上\n**俶尔**远逝\n往来**翕忽**\n斗折蛇**行**\n**犬牙**差互\n凄神**寒**骨\n悄怆幽**邃**\n以其境过**清**",
+                a: "向西\n竹林\n听到\n玉饰\n以...为乐\n砍伐\n清凉\n作为\n翻卷\n左右，上下\n在空中\n透射\n映照\n忽然\n轻快敏捷的样子\n像蛇一样爬行\n像狗的牙齿那样\n使...寒冷\n深远\n凄清"
+            },
+            "小石潭记实词": {
+                q: "从小丘**西**行\n**闻**水声\n**伐**竹取道\n水尤**清冽**\n**卷**石底以出\n潭中鱼可百**许**头\n日光下**澈**\n影**布**石上\n斗折蛇**行**\n**犬牙**差互\n凄神**寒**骨\n悄怆幽**邃**\n不可**久**居",
+                a: "向西\n听到\n砍伐\n清凉\n翻卷\n左右，上下\n透射\n映照\n像蛇一样爬行\n像狗的牙齿那样\n使...寒冷\n深远\n长久"
+            },
+            "小石潭记虚词": {
+                q: "全石**以**为底\n卷石底**以**出\n**以**其境过清\n乃记之**而**去\n潭中鱼**可**百许头\n明灭**可**见\n不**可**知其源\n不**可**久居\n乃记**之**而去\n隶而从**之**者",
+                a: "用，把\n相当于“而”，表承接\n因为\n表顺承\n大约\n可以\n能够\n能够\n代词，指代这番景致\n代词，指代作者"
+            },
+            "八下全部实词": {
+                q: "缘溪**行**\n芳草**鲜美**\n欲**穷**其林\n渔人甚**异**之\n**具**答之\n处处**志**之\n寻向所**志**\n欣然**规**往\n予**观**夫巴陵胜状\n浩浩**汤汤**\n横**无际涯**\n朝晖**夕**阴\n**此**则岳阳楼之大观也\n前人之述**备**矣\n然则北通**巫峡**\n南**极**潇湘\n迁客**骚人**",
+                a: "走\n鲜艳美丽\n走到尽头\n对...感到诧异\n详细\n做记号\n标记\n计划\n看\n水势浩大的样子\n宽阔无边\n傍晚\n这\n详尽\n巫峡\n尽头\n诗人"
+            },
+            "八下全部虚词": {
+                q: "忘路**之**远近\n渔人甚异**之**\n具答**之**\n处处志**之**\n属予作文**以**记之\n不**以**物喜\n**以**其境过清\n乃记之**而**去\n学**而**时习之\n人不知**而**不愠\n刻唐贤今人诗赋于**其**上\n**其**喜洋洋者矣\n乃重修岳阳楼，增**其**旧制",
+                a: "结构助词，的\n代词，指眼前的景象\n代词，指桃花源中人\n代词，指路\n来\n因为\n因为\n表顺承\n表顺承\n表转折\n代词，指岳阳楼\n代词，那\n它的"
+            }
+        };
+
+        let gameState = {
+            isPlaying: false, playerName: '', score: 0, matchesCount: 0, selectedCard: null,
+            timerLimit: -1, timeLeft: 0, timerInterval: null
+        };
+        let localDBs = {};
+
+        function initLeaves() {
+            const bg = document.getElementById('bg-leaves');
+            for(let i=0; i<30; i++) {
+                let leaf = document.createElement('div');
+                leaf.className = 'leaf';
+                leaf.style.left = Math.random() * 100 + 'vw';
+                leaf.style.top = Math.random() * 100 + 'vh';
+                bg.appendChild(leaf);
+            }
+        }
+        initLeaves();
+        
+        function getStorage(key, def) { try { return JSON.parse(localStorage.getItem(key)) || def; } catch(e){return def;} }
+        function setStorage(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch(e){} }
+
+        function loadDBs() {
+            localDBs = getStorage('xstj_db_v36', null);
+            if (!localDBs || Object.keys(localDBs).length === 0) {
+                localDBs = JSON.parse(JSON.stringify(defaultDBs));
+                setStorage('xstj_db_v36', localDBs);
+            }
+            refreshDbSelect();
+        }
+
+        function refreshDbSelect(selectTarget = null) {
+            els.dbSelect.innerHTML = '';
+            els.dbList.innerHTML = '';
+            let keys = Object.keys(localDBs);
+            
+            keys.forEach(k => {
+                let opt = document.createElement('option');
+                opt.value = k; opt.textContent = k;
+                els.dbSelect.appendChild(opt);
+
+                let item = document.createElement('div');
+                item.className = 'db-item';
+                item.innerHTML = `<span>📜 ${k}</span>`;
+                item.onclick = () => {
+                    playBtnClickSound();
+                    els.dbSelect.value = k;
+                    syncFormFromDb();
+                    document.querySelectorAll('.db-item').forEach(el => el.classList.remove('active'));
+                    item.classList.add('active');
+                };
+                els.dbList.appendChild(item);
+            });
+
+            if (selectTarget && localDBs[selectTarget]) els.dbSelect.value = selectTarget;
+            else if (keys.length > 0) els.dbSelect.value = keys[0];
+            
+            let activeItems = Array.from(els.dbList.children).filter(el => el.innerText.includes(els.dbSelect.value));
+            if(activeItems.length > 0) activeItems[0].classList.add('active');
+
+            syncFormFromDb();
+        }
+
+        function syncFormFromDb() {
+            let key = els.dbSelect.value;
+            if (key && localDBs[key]) {
+                els.dbName.value = key;
+                els.dbQuestions.value = localDBs[key].q;
+                els.dbAnswers.value = localDBs[key].a;
+            } else {
+                els.dbName.value = ''; els.dbQuestions.value = ''; els.dbAnswers.value = '';
+            }
+        }
+
+        els.btnSave.addEventListener('click', () => {
+            playBtnClickSound();
+            let title = els.dbName.value.trim();
+            if (!title) return alert("卷宗名称不可为空！");
+            let q = els.dbQuestions.value.trim(), a = els.dbAnswers.value.trim();
+            if (!q || !a) return alert("原文与释义不可为空！");
+
+            if (els.dbSelect.value && els.dbSelect.value !== title && localDBs[els.dbSelect.value]) {
+                delete localDBs[els.dbSelect.value];
+            }
+            localDBs[title] = { q, a };
+            setStorage('xstj_db_v36', localDBs);
+            refreshDbSelect(title);
+        });
+
+        els.btnNew.addEventListener('click', () => {
+            playBtnClickSound();
+            els.dbSelect.value = '';
+            document.querySelectorAll('.db-item').forEach(el => el.classList.remove('active'));
+            els.dbName.value = '新篇目_' + Math.floor(Math.random() * 100);
+            els.dbQuestions.value = ''; els.dbAnswers.value = '';
+        });
+
+        els.btnDelete.addEventListener('click', () => {
+            playBtnClickSound();
+            let key = els.dbSelect.value;
+            if(!key) return;
+            delete localDBs[key];
+            if(Object.keys(localDBs).length === 0) localDBs = JSON.parse(JSON.stringify(defaultDBs));
+            setStorage('xstj_db_v36', localDBs);
+            refreshDbSelect();
+        });
+
+        // ================= Web Audio 音频引擎 =================
+        let audioCtx = null;
+        function initAudio() { 
+            if(!audioCtx) { try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) {} }
+            if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume(); 
+        }
+
+        const penta = [523.25, 587.33, 659.25, 783.99, 880.00, 1046.50];
+
+        function playTone(freq, type, duration, vol=0.3, startTime=null) {
+            if(!audioCtx) return;
+            const now = audioCtx.currentTime;
+            const st = startTime !== null ? startTime : now;
+            const osc = audioCtx.createOscillator(); 
+            const gain = audioCtx.createGain();
+            osc.type = type; osc.frequency.setValueAtTime(freq, st);
+            gain.gain.setValueAtTime(0, st);
+            gain.gain.linearRampToValueAtTime(vol, st + 0.01);
+            gain.gain.exponentialRampToValueAtTime(0.01, st + duration);
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.start(st); osc.stop(st + duration);
+        }
+
+        function playBtnClickSound() { initAudio(); playTone(penta[2], 'triangle', 0.15); }
+        function playEndSound() { initAudio(); [5, 4, 3, 2, 0].forEach((n, i) => { setTimeout(() => playTone(penta[n], 'sine', 0.3), i * 120); }); }
+        function playTickSound() { initAudio(); playTone(penta[5], 'square', 0.05, 0.1); }
+        function playSplashSound() { initAudio(); playTone(150, 'triangle', 0.3, 0.5); setTimeout(()=>playTone(100, 'triangle', 0.4, 0.5), 100); }
+
+        function playChopSound() {
+            if(!audioCtx) return; initAudio();
+            const now = audioCtx.currentTime;
+            const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+            osc.type = 'triangle'; osc.frequency.setValueAtTime(800, now); osc.frequency.exponentialRampToValueAtTime(100, now + 0.1);
+            gain.gain.setValueAtTime(0, now); gain.gain.linearRampToValueAtTime(1, now + 0.01); gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+            osc.connect(gain); gain.connect(audioCtx.destination); osc.start(now); osc.stop(now + 0.15);
+            const bufferSize = audioCtx.sampleRate * 0.15; const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const data = buffer.getChannelData(0); for(let i=0; i<bufferSize; i++) data[i] = Math.random() * 2 - 1;
+            const noise = audioCtx.createBufferSource(); noise.buffer = buffer;
+            const noiseFilter = audioCtx.createBiquadFilter(); noiseFilter.type = 'bandpass'; noiseFilter.frequency.value = 1200;
+            const noiseGain = audioCtx.createGain(); noiseGain.gain.setValueAtTime(1, now); noiseGain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+            noise.connect(noiseFilter); noiseFilter.connect(noiseGain); noiseGain.connect(audioCtx.destination); noise.start(now);
+        }
+
+        function playCheerSound() {
+            if(!audioCtx) return; initAudio();
+            const now = audioCtx.currentTime;
+            [1046.50, 1318.51, 1567.98, 2093.00].forEach((freq, i) => {
+                const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+                osc.type = 'sine'; osc.frequency.setValueAtTime(freq, now + i*0.08);
+                gain.gain.setValueAtTime(0, now + i*0.08); gain.gain.linearRampToValueAtTime(0.4, now + i*0.08 + 0.02); gain.gain.exponentialRampToValueAtTime(0.01, now + i*0.08 + 0.4);
+                osc.connect(gain); gain.connect(audioCtx.destination); osc.start(now + i*0.08); osc.stop(now + i*0.08 + 0.4);
+            });
+        }
+
+        // ================= 游戏流程控制 =================
+        els.timeOptions.forEach(opt => {
+            opt.addEventListener('click', (e) => {
+                playBtnClickSound();
+                els.timeOptions.forEach(o => o.classList.remove('active'));
+                e.target.classList.add('active');
+            });
+        });
+
+        els.startBtn.addEventListener('click', () => {
+            playChopSound(); 
+            playCheerSound();
+            
+            const qLines = els.dbQuestions.value.trim().split(/\r?\n/).filter(l=>l.trim()!=='');
+            const aLines = els.dbAnswers.value.trim().split(/\r?\n/).filter(l=>l.trim()!=='');
+            
+            if(qLines.length === 0 || qLines.length !== aLines.length) {
+                alert("原文与释义行数需一致！"); return;
+            }
+
+            let pName = els.nameInput.value.trim() || "无名雅客";
+            let activeTimeOpt = document.querySelector('.time-opt.active');
+            let timerSetting = parseInt(activeTimeOpt.dataset.time);
+            
+            // 触发入场动画
+            els.gameScene.style.display = 'block';
+            document.querySelector('.left-raft').classList.add('slide-out-left');
+            document.querySelector('.right-raft').classList.add('slide-out-right');
+            document.querySelector('.middle-raft').classList.add('slide-out-up');
+
+            gameState = { 
+                isPlaying: true, playerName: pName, score: 0, matchesCount: 0, selectedCard: null,
+                timerLimit: timerSetting, timeLeft: timerSetting > 0 ? timerSetting * 60 : -1
+            };
+            
+            els.playerNameDisplay.innerText = pName;
+            els.playerScoreDisplay.innerText = "0";
+            els.matchesDisplay.innerText = "寻章摘句: 0 韵";
+            els.gameBoard.innerHTML = '';
+
+            // 生成小鱼准备展示
+            generateFishes(qLines, aLines);
+
+            // 动画完成后彻底隐藏并启动计时
+            setTimeout(() => {
+                els.prepScene.style.display = 'none';
+                document.querySelector('.left-raft').classList.remove('slide-out-left');
+                document.querySelector('.right-raft').classList.remove('slide-out-right');
+                document.querySelector('.middle-raft').classList.remove('slide-out-up');
+                startTimer();
+            }, 800);
+        });
+
+        els.btnExitGame.addEventListener('click', () => {
+            playBtnClickSound();
+            els.confirmModal.style.display = 'flex';
+        });
+
+        els.btnConfirmNo.addEventListener('click', () => {
+            playBtnClickSound();
+            els.confirmModal.style.display = 'none';
+        });
+
+        els.btnConfirmYes.addEventListener('click', () => {
+            playBtnClickSound();
+            els.confirmModal.style.display = 'none';
+            
+            clearInterval(gameState.timerInterval);
+            gameState.isPlaying = false;
+            els.gameBoard.innerHTML = '';
+            els.gameScene.style.display = 'none';
+            els.prepScene.style.display = 'flex';
+        });
+
+        function startTimer() {
+            clearInterval(gameState.timerInterval);
+            els.timeDisplay.classList.remove('time-alert');
+            
+            if (gameState.timerLimit === -1) {
+                els.timeDisplay.innerText = "剩余时辰: ∞";
+                return;
+            }
+            
+            updateTimeUI();
+            gameState.timerInterval = setInterval(() => {
+                gameState.timeLeft--;
+                updateTimeUI();
+                if (gameState.timeLeft <= 5 && gameState.timeLeft > 0) { els.timeDisplay.classList.add('time-alert'); playTickSound(); }
+                if (gameState.timeLeft <= 0) { clearInterval(gameState.timerInterval); endGame("时辰已到，游历结束"); }
+            }, 1000);
+        }
+
+        function updateTimeUI() {
+            let m = Math.floor(gameState.timeLeft / 60); let s = gameState.timeLeft % 60;
+            els.timeDisplay.innerText = `剩余时辰: ${m}:${s < 10 ? '0'+s : s}`;
+        }
+
+        function shuffleArray(arr) { 
+            for(let i=arr.length-1; i>0; i--){ const j=Math.floor(Math.random()*(i+1)); [arr[i], arr[j]]=[arr[j], arr[i]]; } 
+            return arr; 
+        }
+
+        function parseQuestionText(text) {
+            return text.replace(/\*\*(.*?)\*\*/g, '<span class="highlight-word">$1</span>');
+        }
+
+        function generateFishes(qLines, aLines) {
+            let fishData = [];
+            let limit = Math.min(qLines.length, 30); 
+            
+            for(let i=0; i<limit; i++) {
+                fishData.push({ id: i, type: 'black', html: parseQuestionText(qLines[i]), matchText: aLines[i] }); 
+                fishData.push({ id: i, type: 'white', html: aLines[i], matchText: aLines[i] }); 
+            }
+
+            let totalFishes = fishData.length;
+            let cols = Math.ceil(Math.sqrt(totalFishes * 1.5));
+            let rows = Math.ceil(totalFishes / cols);
+            
+            let spots = [];
+            for(let r=0; r<rows; r++) for(let c=0; c<cols; c++) spots.push({r, c});
+            
+            spots = shuffleArray(spots).slice(0, totalFishes);
+            fishData = shuffleArray(fishData);
+
+            const cw = 100/cols, ch = 100/rows;
+
+            fishData.forEach((data, index) => {
+                const fish = document.createElement('div');
+                fish.className = `fish-card fish-${data.type}`;
+                
+                fish.innerHTML = `
+                    <div class="fish-wiggle">
+                        <div class="fish-tail-fin"></div>
+                        <div class="fish-body">
+                            <div class="fish-eye"></div>
+                            <div class="text-content">${data.html}</div>
+                        </div>
+                    </div>
+                `;
+                
+                fish.dataset.type = data.type;
+                fish.dataset.matchText = data.matchText;
+
+                let spot = spots[index];
+                
+                let pureText = data.html.replace(/<[^>]+>/g, '');
+                let scaleMultiplier = 1.04; 
+                if (pureText.length > 6) scaleMultiplier = 1.2;
+                if (pureText.length > 12) scaleMultiplier = 1.36;
+                if (pureText.length > 18) scaleMultiplier = 1.52;
+
+                fish.style.left = `50%`; fish.style.top = `100%`; fish.style.opacity = '0';
+                
+                fish.style.width = `calc(${cw}% * ${scaleMultiplier})`; 
+                fish.style.height = `calc(${ch}% * ${scaleMultiplier})`;
+
+                fish.dataset.gridSpot = JSON.stringify({c: spot.c, r: spot.r, cw, ch, scale: scaleMultiplier});
+                
+                fish.addEventListener('click', handleFishClick);
+                els.gameBoard.appendChild(fish);
+
+                setTimeout(() => {
+                    fish.style.left = `${spot.c*cw + cw/2}%`; 
+                    fish.style.top = `${spot.r*ch + ch/2}%`; 
+                    fish.style.opacity = '1';
+                }, index * 30);
+            });
+        }
+
+        // ================= 积分规则核心修改区 =================
+        function handleFishClick(e) {
+            if(!gameState.isPlaying) return;
+            const fish = e.currentTarget;
+            if(fish.classList.contains('matched')) return;
+
+            if(!gameState.selectedCard) {
+                playBtnClickSound();
+                fish.classList.add('selected'); gameState.selectedCard = fish; return;
+            }
+
+            if(gameState.selectedCard === fish) {
+                playBtnClickSound();
+                fish.classList.remove('selected'); gameState.selectedCard = null; return;
+            }
+
+            if(gameState.selectedCard.dataset.type === fish.dataset.type) {
+                playBtnClickSound();
+                gameState.selectedCard.classList.remove('selected');
+                fish.classList.add('selected'); gameState.selectedCard = fish; return;
+            }
+
+            const f1 = gameState.selectedCard; const f2 = fish;
+
+            if(f1.dataset.matchText === f2.dataset.matchText) {
+                playCheerSound(); 
+                drawAndCollide(f1, f2);
+                
+                gameState.matchesCount++;
+                gameState.score += 2; 
+                
+                els.playerScoreDisplay.innerText = gameState.score;
+                els.matchesDisplay.innerText = `寻章摘句: ${gameState.matchesCount} 韵`;
+                gameState.selectedCard = null;
+                setTimeout(checkWinCondition, 1200);
+            } else {
+                playSplashSound();
+                f1.classList.remove('selected');
+                gameState.matchesCount = 0; 
+                
+                gameState.score -= 1;
+                els.playerScoreDisplay.innerText = gameState.score;
+                
+                gameState.selectedCard = null;
+                triggerFailShuffle();
+            }
+        }
+
+        function drawAndCollide(f1, f2) {
+            const blackFish = f1.dataset.type === 'black' ? f1 : f2;
+            const whiteFish = f1.dataset.type === 'white' ? f1 : f2;
+
+            blackFish.classList.remove('selected'); whiteFish.classList.remove('selected');
+            blackFish.classList.add('matched'); whiteFish.classList.add('matched');
+
+            whiteFish.style.zIndex = 1000;
+            whiteFish.style.left = blackFish.style.left;
+            whiteFish.style.top = blackFish.style.top;
+
+            setTimeout(() => {
+                blackFish.style.display = 'none';
+                whiteFish.style.display = 'none';
+                
+                for(let i=0; i<4; i++) {
+                    setTimeout(() => {
+                        const ripple = document.createElement('div');
+                        ripple.className = 'water-ripple';
+                        ripple.style.left = blackFish.style.left; ripple.style.top = blackFish.style.top;
+                        els.gameBoard.appendChild(ripple);
+                        setTimeout(() => ripple.remove(), 2500);
+                    }, i * 200);
+                }
+            }, 600); 
+        }
+
+        function triggerFailShuffle() {
+            const unmatchedFishes = Array.from(document.querySelectorAll('.fish-card:not(.matched)'));
+            if(unmatchedFishes.length === 0) return;
+            unmatchedFishes.forEach(f => { f.classList.remove('startled-shake'); void f.offsetWidth; f.classList.add('startled-shake'); });
+            setTimeout(() => {
+                let availableSpots = unmatchedFishes.map(f => JSON.parse(f.dataset.gridSpot));
+                availableSpots = shuffleArray(availableSpots);
+                unmatchedFishes.forEach((f, index) => {
+                    f.classList.remove('startled-shake');
+                    let newSpot = availableSpots[index];
+                    f.dataset.gridSpot = JSON.stringify(newSpot);
+                    f.style.left = `${newSpot.c*newSpot.cw + newSpot.cw/2}%`;
+                    f.style.top = `${newSpot.r*newSpot.ch + newSpot.ch/2}%`;
+                });
+            }, 400); 
+        }
+
+        function checkWinCondition() {
+            const remaining = document.querySelectorAll('.fish-card:not(.matched)').length;
+            if(remaining === 0) { clearInterval(gameState.timerInterval); endGame("清潭见底，雅趣天成！"); }
+        }
+
+        function endGame(msg) {
+            playEndSound(); 
+            gameState.isPlaying = false;
+            if(gameState.score > 0) saveScore(gameState.playerName, gameState.score);
+            els.resultTitle.innerText = msg;
+            els.resultScoreDisplay.innerText = gameState.score;
+            els.resultsModal.style.display = 'flex';
+        }
+
+        window.closeResults = function() {
+            playBtnClickSound();
+            els.resultsModal.style.display = 'none';
+            els.gameBoard.innerHTML = '';
+            els.gameScene.style.display = 'none';
+            els.prepScene.style.display = 'flex'; 
+        }
+
+        function saveScore(name, score) {
+            let board = getStorage('xstj_leaderboard_v36', []);
+            board.push({ name, score, date: new Date().toLocaleDateString() });
+            board.sort((a,b) => b.score - a.score);
+            board = board.slice(0, 10);
+            setStorage('xstj_leaderboard_v36', board);
+            renderLeaderboard();
+        }
+
+        function renderLeaderboard() {
+            let board = getStorage('xstj_leaderboard_v36', []);
+            els.leaderboardList.innerHTML = '';
+            if(board.length === 0) { els.leaderboardList.innerHTML = '<div style="text-align:center;color:#8d6e63;padding:20px;font-weight:bold;">榜首悬缺</div>'; return; }
+            board.forEach((item, index) => {
+                const div = document.createElement('div'); div.className = `rank-item`;
+                const prefix = index === 0 ? '👑 状元' : (index === 1 ? '🏵️ 榜眼' : (index === 2 ? '💮 探花' : `📜 第${index+1}名`));
+                div.innerHTML = `<span style="color:${index<3?'#d32f2f':'#3e2723'}">${prefix} ${item.name}</span><span style="color:#f57f17">${item.score} 分</span>`;
+                els.leaderboardList.appendChild(div);
+            });
+        }
+        
+        loadDBs(); renderLeaderboard();
+    </script>
+</body>
+</html>
